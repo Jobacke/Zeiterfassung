@@ -1,7 +1,9 @@
 const CACHE_NAME = 'zeiterfassung-v1';
 const urlsToCache = [
-  '/zeiterfassung_ios.html',
-  '/manifest.json'
+  './',
+  './index.html',
+  './zeiterfassung_ios.html',
+  './manifest.json'
 ];
 
 // Installation
