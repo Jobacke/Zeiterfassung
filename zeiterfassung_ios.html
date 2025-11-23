@@ -444,6 +444,53 @@
             display: none !important;
         }
         
+        /* Active Timer Indicator */
+        .timer-active {
+            position: relative;
+            border: 3px solid #48bb78 !important;
+            background: #f0fff4 !important;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(72, 187, 120, 0.7); }
+            50% { box-shadow: 0 0 0 10px rgba(72, 187, 120, 0); }
+        }
+        
+        .timer-status {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #48bb78;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .warning-banner {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .warning-banner.error {
+            background: #fee;
+            border-color: #f56565;
+        }
+        
         .countdown-input-group {
             display: flex;
             gap: 10px;
@@ -514,6 +561,16 @@
             
             <!-- Timer Tab -->
             <div id="timer-tab" class="tab-content active">
+                <!-- Timer Status Warning -->
+                <div id="timer-warning" class="warning-banner" style="display: none;">
+                    <span style="font-size: 24px;">⚠️</span>
+                    <div style="flex: 1;">
+                        <strong>Timer läuft bereits!</strong><br>
+                        <span id="warning-details"></span>
+                    </div>
+                    <button class="btn btn-danger" onclick="stopAllTimers()" style="padding: 8px 16px;">Stop</button>
+                </div>
+                
                 <!-- Arbeitsort Auswahl -->
                 <h2>Arbeitsort auswählen</h2>
                 <div class="location-selector">
@@ -855,7 +912,11 @@
             // Aktualisiere Backup-Status alle 5 Minuten
             setInterval(updateBackupStatus, 5 * 60 * 1000);
             
-            console.log('✅ Zeiterfassung iOS mit Cloud-Backup geladen!');
+            // Aktualisiere Timer-Warnung regelmäßig
+            setInterval(updateTimerWarning, 1000);
+            updateTimerWarning(); // Initial
+            
+            console.log('✅ Zeiterfassung iOS mit Duplikats-Erkennung geladen!');
         });
         
         // Tab Switching
@@ -878,6 +939,144 @@
             document.getElementById(`${location}-btn`).classList.add('selected');
         }
         
+        // ==================== DUPLIKATS- UND ÜBERLAPPUNGS-ERKENNUNG ====================
+        
+        function isTimerRunning() {
+            return stopwatchInterval !== null || countdownInterval !== null;
+        }
+        
+        function getActiveTimerInfo() {
+            if (stopwatchInterval) {
+                const themeId = document.getElementById('theme-select').value;
+                const theme = themes.find(t => t.id === themeId);
+                return {
+                    type: 'Stopwatch',
+                    theme: theme ? theme.name : 'Unbekannt',
+                    location: currentLocation === 'homeoffice' ? 'Homeoffice' : 'Büro',
+                    duration: formatDuration(Math.floor(stopwatchTime / 1000))
+                };
+            }
+            if (countdownInterval) {
+                const themeId = document.getElementById('theme-select').value;
+                const theme = themes.find(t => t.id === themeId);
+                return {
+                    type: 'Countdown',
+                    theme: theme ? theme.name : 'Unbekannt',
+                    location: currentLocation === 'homeoffice' ? 'Homeoffice' : 'Büro',
+                    duration: formatDuration(countdownTime)
+                };
+            }
+            return null;
+        }
+        
+        function updateTimerWarning() {
+            const warning = document.getElementById('timer-warning');
+            const details = document.getElementById('warning-details');
+            
+            if (isTimerRunning()) {
+                const info = getActiveTimerInfo();
+                details.textContent = `${info.type} • ${info.theme} • ${info.location} • ${info.duration}`;
+                warning.style.display = 'flex';
+                
+                // Markiere aktive Timer-Box
+                if (stopwatchInterval) {
+                    document.querySelectorAll('.timer-box')[0].classList.add('timer-active');
+                } else {
+                    document.querySelectorAll('.timer-box')[0].classList.remove('timer-active');
+                }
+                
+                if (countdownInterval) {
+                    document.querySelectorAll('.timer-box')[1].classList.add('timer-active');
+                } else {
+                    document.querySelectorAll('.timer-box')[1].classList.remove('timer-active');
+                }
+            } else {
+                warning.style.display = 'none';
+                document.querySelectorAll('.timer-box').forEach(box => box.classList.remove('timer-active'));
+            }
+        }
+        
+        function stopAllTimers() {
+            if (stopwatchInterval) {
+                stopStopwatch();
+            }
+            if (countdownInterval) {
+                stopCountdown();
+            }
+            updateTimerWarning();
+        }
+        
+        function checkForOverlaps(newEntry) {
+            // Prüfe auf Überlappungen mit bestehenden Einträgen
+            const newStart = new Date(newEntry.timestamp);
+            const newEnd = new Date(newStart.getTime() + newEntry.duration * 1000);
+            
+            const overlaps = entries.filter(entry => {
+                if (entry.id === newEntry.id) return false; // Selbst ignorieren bei Edit
+                
+                const existingStart = new Date(entry.timestamp);
+                const existingEnd = new Date(existingStart.getTime() + entry.duration * 1000);
+                
+                // Prüfe ob sich die Zeiten überschneiden
+                return (newStart < existingEnd && newEnd > existingStart);
+            });
+            
+            return overlaps;
+        }
+        
+        function checkForDuplicates(newEntry) {
+            // Prüfe auf exakte Duplikate (gleiches Projekt, gleiche Zeit, gleicher Ort)
+            const duplicates = entries.filter(entry => {
+                if (entry.id === newEntry.id) return false;
+                
+                const timeDiff = Math.abs(new Date(entry.timestamp) - new Date(newEntry.timestamp));
+                const durationDiff = Math.abs(entry.duration - newEntry.duration);
+                
+                return (
+                    entry.themeId === newEntry.themeId &&
+                    entry.location === newEntry.location &&
+                    timeDiff < 60000 && // Weniger als 1 Minute Unterschied
+                    durationDiff < 60 // Weniger als 1 Minute Unterschied
+                );
+            });
+            
+            return duplicates;
+        }
+        
+        function handleConflict(newEntry, overlaps, duplicates) {
+            let message = '';
+            
+            if (duplicates.length > 0) {
+                message += '⚠️ DUPLIKAT ERKANNT!\n\n';
+                message += 'Es existiert bereits ein sehr ähnlicher Eintrag:\n';
+                duplicates.forEach(dup => {
+                    const date = new Date(dup.timestamp);
+                    message += `• ${dup.themeName} - ${formatTime(date)} (${formatDuration(dup.duration)})\n`;
+                });
+                message += '\nMöchtest du trotzdem speichern?';
+                
+                return confirm(message);
+            }
+            
+            if (overlaps.length > 0) {
+                message += '⚠️ ZEITÜBERSCHNEIDUNG!\n\n';
+                message += 'Diese Zeit überschneidet sich mit:\n';
+                overlaps.forEach(overlap => {
+                    const date = new Date(overlap.timestamp);
+                    message += `• ${overlap.themeName} - ${formatTime(date)} (${formatDuration(overlap.duration)})\n`;
+                });
+                message += '\nOptionen:\n';
+                message += '1. Abbrechen (empfohlen)\n';
+                message += '2. Trotzdem speichern\n';
+                message += '3. Überlappende Einträge anpassen\n\n';
+                message += 'Trotzdem speichern? (Nicht empfohlen)';
+                
+                return confirm(message);
+            }
+            
+            return true; // Keine Konflikte
+        }
+        
         // Stopwatch Functions
         function startStopwatch() {
             if (!currentLocation) {
@@ -889,12 +1088,22 @@
                 return;
             }
             
+            // NEU: Prüfe ob bereits ein Timer läuft
+            if (isTimerRunning()) {
+                const info = getActiveTimerInfo();
+                const message = `⚠️ Es läuft bereits ein Timer!\n\n${info.type}: ${info.theme}\nOrt: ${info.location}\nLaufzeit: ${info.duration}\n\nBitte stoppe zuerst den laufenden Timer!`;
+                alert(message);
+                return;
+            }
+            
             if (!stopwatchInterval) {
                 stopwatchStartTime = Date.now() - stopwatchTime;
                 stopwatchInterval = setInterval(() => {
                     stopwatchTime = Date.now() - stopwatchStartTime;
                     updateStopwatchDisplay();
+                    updateTimerWarning(); // Aktualisiere Warnung
                 }, 100);
+                updateTimerWarning();
             }
         }
         
@@ -903,13 +1112,36 @@
                 clearInterval(stopwatchInterval);
                 stopwatchInterval = null;
                 
-                // Save entry
+                // Save entry mit Duplikats-Check
                 if (stopwatchTime > 0) {
                     const themeId = document.getElementById('theme-select').value;
                     const duration = Math.floor(stopwatchTime / 1000);
-                    saveEntry(themeId, currentLocation, duration);
+                    
+                    // Erstelle temporären Eintrag für Check
+                    const tempEntry = {
+                        themeId,
+                        location: currentLocation,
+                        duration,
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    // Prüfe auf Überlappungen und Duplikate
+                    const overlaps = checkForOverlaps(tempEntry);
+                    const duplicates = checkForDuplicates(tempEntry);
+                    
+                    if (handleConflict(tempEntry, overlaps, duplicates)) {
+                        saveEntry(themeId, currentLocation, duration);
+                        resetStopwatch();
+                    } else {
+                        // Nutzer hat abgebrochen, Zeit bleibt bestehen
+                        alert('Zeiteintrag wurde NICHT gespeichert. Timer zurückgesetzt.');
+                        resetStopwatch();
+                    }
+                } else {
                     resetStopwatch();
                 }
+                
+                updateTimerWarning();
             }
         }
         
@@ -918,6 +1150,7 @@
             stopwatchInterval = null;
             stopwatchTime = 0;
             updateStopwatchDisplay();
+            updateTimerWarning();
         }
         
         function updateStopwatchDisplay() {
@@ -937,6 +1170,14 @@
             }
             if (!document.getElementById('theme-select').value) {
                 alert('Bitte wähle ein Projekt aus!');
+                return;
+            }
+            
+            // NEU: Prüfe ob bereits ein Timer läuft
+            if (isTimerRunning()) {
+                const info = getActiveTimerInfo();
+                const message = `⚠️ Es läuft bereits ein Timer!\n\n${info.type}: ${info.theme}\nOrt: ${info.location}\nLaufzeit: ${info.duration}\n\nBitte stoppe zuerst den laufenden Timer!`;
+                alert(message);
                 return;
             }
             
@@ -961,6 +1202,7 @@
                     const remaining = Math.max(0, Math.ceil((endTime - now) / 1000));
                     countdownTime = remaining;
                     updateCountdownDisplay();
+                    updateTimerWarning(); // Aktualisiere Warnung
                     
                     if (remaining <= 0) {
                         stopCountdown();
@@ -968,6 +1210,7 @@
                         alert('⏰ Countdown abgelaufen!');
                     }
                 }, 100);
+                updateTimerWarning();
             }
         }
         
@@ -986,8 +1229,27 @@
                 
                 if (usedTime > 0) {
                     const themeId = document.getElementById('theme-select').value;
-                    saveEntry(themeId, currentLocation, usedTime);
+                    
+                    // Erstelle temporären Eintrag für Check
+                    const tempEntry = {
+                        themeId,
+                        location: currentLocation,
+                        duration: usedTime,
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    // Prüfe auf Überlappungen und Duplikate
+                    const overlaps = checkForOverlaps(tempEntry);
+                    const duplicates = checkForDuplicates(tempEntry);
+                    
+                    if (handleConflict(tempEntry, overlaps, duplicates)) {
+                        saveEntry(themeId, currentLocation, usedTime);
+                    } else {
+                        alert('Zeiteintrag wurde NICHT gespeichert.');
+                    }
                 }
+                
+                updateTimerWarning();
             }
         }
         
@@ -1000,6 +1262,7 @@
             const seconds = parseInt(document.getElementById('countdown-seconds').value) || 0;
             countdownTime = hours * 3600 + minutes * 60 + seconds;
             updateCountdownDisplay();
+            updateTimerWarning();
         }
         
         function updateCountdownDisplay() {
@@ -1286,6 +1549,26 @@
                 return;
             }
             
+            // NEU: Erstelle temporären Eintrag für Konflikt-Check
+            const tempEntry = {
+                id: editingEntryId, // Wichtig: Eigene ID mitgeben zum Ignorieren
+                themeId,
+                themeName: theme.name,
+                themeColor: theme.color,
+                location,
+                duration,
+                timestamp: start.toISOString(),
+                date
+            };
+            
+            // Prüfe auf Überlappungen und Duplikate
+            const overlaps = checkForOverlaps(tempEntry);
+            const duplicates = checkForDuplicates(tempEntry);
+            
+            if (!handleConflict(tempEntry, overlaps, duplicates)) {
+                return; // Nutzer hat abgebrochen
+            }
+            
             entry.themeId = themeId;
             entry.themeName = theme.name;
             entry.themeColor = theme.color;
@@ -1298,6 +1581,7 @@
             updateHistory();
             updateStats();
             hideEditModal();
+            alert('✅ Eintrag erfolgreich aktualisiert!');
         }
         
         function formatTimeInput(date) {
@@ -1345,6 +1629,25 @@
                 return;
             }
             
+            // NEU: Erstelle temporären Eintrag für Konflikt-Check
+            const tempEntry = {
+                themeId,
+                themeName: theme.name,
+                themeColor: theme.color,
+                location,
+                duration,
+                timestamp: start.toISOString(),
+                date
+            };
+            
+            // Prüfe auf Überlappungen und Duplikate
+            const overlaps = checkForOverlaps(tempEntry);
+            const duplicates = checkForDuplicates(tempEntry);
+            
+            if (!handleConflict(tempEntry, overlaps, duplicates)) {
+                return; // Nutzer hat abgebrochen
+            }
+            
             const entry = {
                 id: Date.now().toString(),
                 themeId,
@@ -1360,6 +1663,7 @@
             saveData();
             updateViews();
             hideManualEntry();
+            alert('✅ Zeiteintrag erfolgreich gespeichert!');
         }
         
         // Statistics
