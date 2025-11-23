@@ -1,0 +1,2214 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Zeiterfassung">
+    <meta name="theme-color" content="#667eea">
+    <title>Zeiterfassung Pro - Cloud</title>
+    <link rel="manifest" href="./manifest.json">
+    
+    <!-- Firebase SDK v10 (Compat Mode für einfachere Nutzung) -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    
+    <!-- Libraries für Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 0;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            padding-bottom: 80px;
+        }
+
+        /* ===== LOGIN SCREEN ===== */
+        .login-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .login-screen.hidden {
+            display: none;
+        }
+
+        .login-card {
+            background: white;
+            border-radius: 30px;
+            padding: 50px 40px;
+            max-width: 420px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.4s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .login-card h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .login-card p {
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 16px;
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 18px;
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 15px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .login-btn:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .login-btn:active {
+            transform: translateY(0);
+        }
+
+        .login-btn::before {
+            content: '🔐';
+            font-size: 24px;
+        }
+
+        .setup-notice {
+            margin: 30px 0 0;
+            padding: 20px;
+            background: #fff3cd;
+            border-radius: 15px;
+            border-left: 4px solid #ffc107;
+            text-align: left;
+        }
+
+        .setup-notice h3 {
+            color: #856404;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .setup-notice p {
+            color: #856404;
+            font-size: 14px;
+            margin: 0;
+        }
+
+        .setup-notice a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .setup-notice a:hover {
+            text-decoration: underline;
+        }
+
+        /* ===== HEADER ===== */
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+
+        .user-avatar img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .user-details {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .user-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .user-email {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .sync-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: #e8f5e9;
+            border-radius: 20px;
+            font-size: 13px;
+            color: #2e7d32;
+        }
+
+        .sync-status.syncing {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .sync-status.offline {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .sync-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4caf50;
+            animation: pulse 2s infinite;
+        }
+
+        .sync-status.syncing .sync-indicator {
+            background: #ffc107;
+        }
+
+        .sync-status.offline .sync-indicator {
+            background: #f44336;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.5;
+                transform: scale(1.2);
+            }
+        }
+
+        .logout-btn {
+            padding: 10px 20px;
+            background: white;
+            border: 2px solid #f44336;
+            color: #f44336;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .logout-btn:hover {
+            background: #f44336;
+            color: white;
+        }
+
+        /* ===== CARDS ===== */
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* ===== TIMER CONTROLS ===== */
+        .timer-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .timer-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px 20px;
+            border-radius: 15px;
+            text-align: center;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .timer-box:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .timer-box.active {
+            background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
+            animation: timerPulse 2s infinite;
+        }
+
+        @keyframes timerPulse {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
+            }
+            50% {
+                box-shadow: 0 0 0 15px rgba(76, 175, 80, 0);
+            }
+        }
+
+        .timer-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .timer-label {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+
+        .timer-time {
+            font-size: 32px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ===== FORMS ===== */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .form-select,
+        .form-input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .form-select:focus,
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        /* ===== LOCATION SWITCH ===== */
+        .location-switch {
+            display: flex;
+            gap: 10px;
+            padding: 5px;
+            background: #f5f5f5;
+            border-radius: 12px;
+        }
+
+        .location-option {
+            flex: 1;
+            padding: 15px;
+            background: transparent;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .location-option.active {
+            background: white;
+            color: #667eea;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        /* ===== BUTTONS ===== */
+        .btn-primary,
+        .btn-secondary,
+        .btn-danger {
+            width: 100%;
+            padding: 18px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #d32f2f;
+            transform: translateY(-2px);
+        }
+
+        /* ===== ENTRIES LIST ===== */
+        .entries-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .entry-item {
+            background: #f8f9fa;
+            padding: 18px;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .entry-item:hover {
+            background: #f0f0f0;
+            transform: translateX(5px);
+        }
+
+        .entry-info {
+            flex: 1;
+        }
+
+        .entry-date {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 5px;
+        }
+
+        .entry-project {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+            font-size: 16px;
+        }
+
+        .entry-time {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .entry-location {
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background: #e3f2fd;
+            color: #1976d2;
+            display: inline-block;
+            margin-top: 5px;
+        }
+
+        .entry-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .action-btn {
+            width: 36px;
+            height: 36px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .action-btn.edit {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .action-btn.delete {
+            background: #ffebee;
+            color: #f44336;
+        }
+
+        .action-btn:hover {
+            transform: scale(1.1);
+        }
+
+        /* ===== NAVIGATION ===== */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            display: flex;
+            justify-content: space-around;
+            padding: 15px 0;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            padding: 8px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: #999;
+            text-decoration: none;
+        }
+
+        .nav-item.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .nav-icon {
+            font-size: 24px;
+        }
+
+        .nav-label {
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        /* ===== PAGES ===== */
+        .page {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        /* ===== STATISTICS CARDS ===== */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            border-radius: 15px;
+            color: white;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        /* ===== MODAL ===== */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: slideUp 0.3s ease;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: #f5f5f5;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .modal-close:hover {
+            background: #e0e0e0;
+            transform: rotate(90deg);
+        }
+
+        /* ===== WARNINGS & ALERTS ===== */
+        .warning-banner {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: none;
+            align-items: center;
+            gap: 15px;
+            animation: slideDown 0.3s ease;
+        }
+
+        .warning-banner.show {
+            display: flex;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .warning-icon {
+            font-size: 24px;
+        }
+
+        .warning-content {
+            flex: 1;
+        }
+
+        .warning-title {
+            font-weight: 600;
+            color: #856404;
+            margin-bottom: 5px;
+        }
+
+        .warning-text {
+            font-size: 14px;
+            color: #856404;
+        }
+
+        /* ===== EMPTY STATE ===== */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .empty-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .empty-text {
+            font-size: 14px;
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+                padding-bottom: 80px;
+            }
+
+            .timer-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .stat-card {
+                padding: 15px;
+            }
+
+            .stat-value {
+                font-size: 24px;
+            }
+        }
+
+        /* ===== LOADING SPINNER ===== */
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div class="login-screen" id="loginScreen">
+        <div class="login-card">
+            <h1>⏱️ Zeiterfassung Pro</h1>
+            <p>Cloud-Synchronisation mit Firebase</p>
+            
+            <button class="login-btn" id="googleLoginBtn">
+                Mit Google anmelden
+            </button>
+            
+            <div class="setup-notice">
+                <h3>📝 Firebase Setup erforderlich</h3>
+                <p>Bitte folge der <a href="./FIREBASE_SETUP.md" target="_blank">Setup-Anleitung</a>, um Firebase zu konfigurieren.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App (hidden until logged in) -->
+    <div id="appContainer" style="display:none;">
+        
+        <!-- Header mit User Info -->
+        <div class="container">
+            <div class="header">
+                <div class="user-info">
+                    <div class="user-avatar" id="userAvatar">
+                        <span id="userInitial">U</span>
+                    </div>
+                    <div class="user-details">
+                        <div class="user-name" id="userName">Laden...</div>
+                        <div class="user-email" id="userEmail"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="cabfb9afb88aafb2aba7baa6afe4a9a5a7">[email&#160;protected]</a></div>
+                    </div>
+                </div>
+                
+                <div class="sync-status" id="syncStatus">
+                    <div class="sync-indicator"></div>
+                    <span id="syncText">Synchronisiert</span>
+                </div>
+                
+                <button class="logout-btn" id="logoutBtn">Abmelden</button>
+            </div>
+
+            <!-- Warning Banner -->
+            <div class="warning-banner" id="warningBanner">
+                <div class="warning-icon">⚠️</div>
+                <div class="warning-content">
+                    <div class="warning-title" id="warningTitle">Achtung!</div>
+                    <div class="warning-text" id="warningText">Nachricht hier</div>
+                </div>
+            </div>
+
+            <!-- Timer Page -->
+            <div class="page active" id="timerPage">
+                <div class="card">
+                    <div class="card-title">⏱️ Zeiterfassung</div>
+                    
+                    <div class="timer-grid">
+                        <div class="timer-box" id="stopwatchBox" onclick="toggleStopwatch()">
+                            <div class="timer-icon">▶️</div>
+                            <div class="timer-label">Stoppuhr</div>
+                            <div class="timer-time" id="stopwatchDisplay">00:00:00</div>
+                        </div>
+                        
+                        <div class="timer-box" id="countdownBox" onclick="toggleCountdown()">
+                            <div class="timer-icon">⏰</div>
+                            <div class="timer-label">Countdown</div>
+                            <div class="timer-time" id="countdownDisplay">00:00:00</div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Projekt</label>
+                        <select class="form-select" id="projectSelect">
+                            <option value="">Projekt wählen...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Arbeitsort</label>
+                        <div class="location-switch">
+                            <button class="location-option active" onclick="setLocation('homeoffice')">
+                                🏠 Homeoffice
+                            </button>
+                            <button class="location-option" onclick="setLocation('office')">
+                                🏢 Büro
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group" id="countdownInputGroup" style="display:none;">
+                        <label class="form-label">Countdown-Zeit (Minuten)</label>
+                        <input type="number" class="form-input" id="countdownInput" 
+                               placeholder="z.B. 90" min="1" value="90">
+                    </div>
+                    
+                    <button class="btn-secondary" onclick="quickSave()">
+                        💾 Schnellspeichern (Aktuelle Zeit)
+                    </button>
+                </div>
+                
+                <div class="card">
+                    <div class="card-title">📋 Heutige Einträge</div>
+                    <div class="entries-list" id="todayEntries">
+                        <div class="empty-state">
+                            <div class="empty-icon">📝</div>
+                            <div class="empty-title">Noch keine Einträge</div>
+                            <div class="empty-text">Starte einen Timer, um zu beginnen</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Projekte Page -->
+            <div class="page" id="projectsPage">
+                <div class="card">
+                    <div class="card-title">📁 Projekte verwalten</div>
+                    <button class="btn-primary" onclick="showAddProjectModal()">
+                        ➕ Neues Projekt
+                    </button>
+                    
+                    <div class="entries-list" id="projectsList" style="margin-top: 20px;">
+                        <!-- Projekte werden hier eingefügt -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dashboard Page -->
+            <div class="page" id="dashboardPage">
+                <div class="card">
+                    <div class="card-title">📊 Dashboard</div>
+                    
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="statTodayHours">0.0</div>
+                            <div class="stat-label">Stunden heute</div>
+                        </div>
+                        <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                            <div class="stat-value" id="statWeekHours">0.0</div>
+                            <div class="stat-label">Stunden diese Woche</div>
+                        </div>
+                        <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                            <div class="stat-value" id="statMonthHours">0.0</div>
+                            <div class="stat-label">Stunden diesem Monat</div>
+                        </div>
+                        <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                            <div class="stat-value" id="statTotalProjects">0</div>
+                            <div class="stat-label">Aktive Projekte</div>
+                        </div>
+                    </div>
+                    
+                    <canvas id="chartWeekly" style="margin-top: 20px;"></canvas>
+                </div>
+            </div>
+
+            <!-- Export Page -->
+            <div class="page" id="exportPage">
+                <div class="card">
+                    <div class="card-title">💾 Export & Backup</div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Zeitraum</label>
+                        <select class="form-select" id="exportRange">
+                            <option value="today">Heute</option>
+                            <option value="week">Diese Woche</option>
+                            <option value="month">Dieser Monat</option>
+                            <option value="all">Alle Einträge</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Format</label>
+                        <select class="form-select" id="exportFormat">
+                            <option value="xlsx">Excel (XLSX)</option>
+                            <option value="pdf">PDF Bericht</option>
+                            <option value="csv">CSV</option>
+                            <option value="json">JSON Backup</option>
+                        </select>
+                    </div>
+                    
+                    <button class="btn-primary" onclick="exportData()">
+                        📥 Exportieren
+                    </button>
+                    
+                    <button class="btn-secondary" onclick="document.getElementById('importFile').click()">
+                        📤 JSON Backup importieren
+                    </button>
+                    <input type="file" id="importFile" accept=".json" style="display:none;" onchange="importData(event)">
+                    
+                    <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #f0f0f0;">
+                        <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
+                            <strong>💡 Tipp:</strong> Mit Firebase ist deine Cloud-Backup automatisch! 
+                            Der JSON-Export ist nur für zusätzliche lokale Sicherungen gedacht.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <a class="nav-item active" onclick="showPage('timer')">
+                <div class="nav-icon">⏱️</div>
+                <div class="nav-label">Timer</div>
+            </a>
+            <a class="nav-item" onclick="showPage('projects')">
+                <div class="nav-icon">📁</div>
+                <div class="nav-label">Projekte</div>
+            </a>
+            <a class="nav-item" onclick="showPage('dashboard')">
+                <div class="nav-icon">📊</div>
+                <div class="nav-label">Dashboard</div>
+            </a>
+            <a class="nav-item" onclick="showPage('export')">
+                <div class="nav-icon">💾</div>
+                <div class="nav-label">Export</div>
+            </a>
+        </nav>
+    </div>
+
+    <!-- Edit Entry Modal -->
+    <div class="modal-overlay" id="editModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">✏️ Eintrag bearbeiten</div>
+                <button class="modal-close" onclick="closeEditModal()">×</button>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Datum</label>
+                <input type="date" class="form-input" id="editDate">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Projekt</label>
+                <select class="form-select" id="editProject">
+                    <option value="">Projekt wählen...</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Startzeit</label>
+                <input type="time" class="form-input" id="editStartTime">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Endzeit</label>
+                <input type="time" class="form-input" id="editEndTime">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Arbeitsort</label>
+                <div class="location-switch">
+                    <button class="location-option" id="editHomeoffice" onclick="setEditLocation('homeoffice')">
+                        🏠 Homeoffice
+                    </button>
+                    <button class="location-option" id="editOffice" onclick="setEditLocation('office')">
+                        🏢 Büro
+                    </button>
+                </div>
+            </div>
+            
+            <button class="btn-primary" onclick="saveEdit()">💾 Speichern</button>
+            <button class="btn-secondary" onclick="closeEditModal()">Abbrechen</button>
+        </div>
+    </div>
+
+    <!-- Add Project Modal -->
+    <div class="modal-overlay" id="addProjectModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">➕ Neues Projekt</div>
+                <button class="modal-close" onclick="closeAddProjectModal()">×</button>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Projektname</label>
+                <input type="text" class="form-input" id="newProjectName" placeholder="z.B. Personalrat Meeting">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Farbe</label>
+                <input type="color" class="form-input" id="newProjectColor" value="#667eea">
+            </div>
+            
+            <button class="btn-primary" onclick="addProject()">✅ Projekt erstellen</button>
+            <button class="btn-secondary" onclick="closeAddProjectModal()">Abbrechen</button>
+        </div>
+    </div>
+
+    <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+        // =========================================
+        // FIREBASE CONFIGURATION
+        // =========================================
+        
+        // BITTE AUSFÜLLEN MIT DEINER FIREBASE CONFIG!
+        const firebaseConfig = {
+  apiKey: "AIzaSyDGjFkUJC-LBxvLTNBhUjKmJy3FWFk5XXE",
+  authDomain: "zeiterfassung-pro-88b0c.firebaseapp.com",
+  projectId: "zeiterfassung-pro-88b0c",
+  storageBucket: "zeiterfassung-pro-88b0c.firebasestorage.app",
+  messagingSenderId: "794469654080",
+  appId: "1:794469654080:web:faec40dacad0d831d289a5"
+};
+
+        // ⚠️ PRÜFE OB FIREBASE CONFIG EINGETRAGEN WURDE
+        if (firebaseConfig.apiKey === "DEINE_API_KEY_HIER_EINFÜGEN") {
+            alert('⚠️⚠️⚠️ FIREBASE CONFIG FEHLT! ⚠️⚠️⚠️\n\nDu musst deine echte Firebase Config in Zeile 1107 eintragen!\n\nOhne Config funktioniert nichts!');
+        }
+
+        // Firebase initialisieren
+        try {
+            firebase.initializeApp(firebaseConfig);
+            console.log('✅ Firebase initialisiert mit Config:', firebaseConfig.projectId);
+        } catch (error) {
+            alert('❌ FEHLER beim Firebase Init:\n\n' + error.message);
+            console.error('Firebase Init Error:', error);
+        }
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        // Offline Persistenz aktivieren
+        db.enablePersistence().catch((err) => {
+            console.warn('Offline Persistenz konnte nicht aktiviert werden:', err);
+        });
+
+        // =========================================
+        // STATE & DATA
+        // =========================================
+        
+        let currentUser = null;
+        let entries = [];
+        let projects = [
+            { id: '1', name: 'Sitzungen Personalrat', color: '#667eea' },
+            { id: '2', name: 'MAV-KV Schulungen', color: '#f093fb' },
+            { id: '3', name: 'Erstberatung Mitarbeitende', color: '#4facfe' },
+            { id: '4', name: 'Dokumentation & Protokolle', color: '#43e97b' },
+            { id: '5', name: 'SLA-Tracking HR-Prozesse', color: '#f5576c' }
+        ];
+        
+        let currentLocation = 'homeoffice';
+        let stopwatchStart = null;
+        let stopwatchInterval = null;
+        let countdownStart = null;
+        let countdownDuration = 0;
+        let countdownInterval = null;
+        let editingEntryId = null;
+
+        // =========================================
+        // FIREBASE AUTH - DEBUG VERSION
+        // =========================================
+        
+        alert('✅ Schritt 1: JavaScript wird geladen');
+        
+        // Prüfe ob Firebase geladen ist
+        if (typeof firebase === 'undefined') {
+            alert('❌ FEHLER: Firebase SDK nicht geladen!');
+        } else {
+            alert('✅ Schritt 2: Firebase SDK geladen');
+        }
+        
+        // Prüfe ob Auth-Objekt existiert
+        if (typeof auth === 'undefined') {
+            alert('❌ FEHLER: Auth-Objekt nicht gefunden!');
+        } else {
+            alert('✅ Schritt 3: Auth-Objekt existiert');
+        }
+        
+        // Prüfe ob Button existiert
+        const loginBtn = document.getElementById('googleLoginBtn');
+        if (!loginBtn) {
+            alert('❌ FEHLER: Login-Button nicht gefunden!');
+        } else {
+            alert('✅ Schritt 4: Login-Button gefunden');
+        }
+        
+        // Google Login - mit Debug-Meldungen
+        document.getElementById('googleLoginBtn').onclick = () => {
+            alert('✅ Schritt 5: Button wurde geklickt!');
+            console.log('🔐 Login Button geklickt');
+            
+            try {
+                alert('✅ Schritt 6: Erstelle Google Provider...');
+                const provider = new firebase.auth.GoogleAuthProvider();
+                provider.setCustomParameters({
+                    prompt: 'select_account'
+                });
+                
+                alert('✅ Schritt 7: Provider erstellt. Starte Redirect...');
+                console.log('🔄 Starte Redirect zu Google...');
+                updateSyncStatus('syncing', 'Login läuft...');
+                
+                // Immer Redirect nutzen
+                auth.signInWithRedirect(provider);
+                
+                alert('✅ Schritt 8: Redirect gestartet (wirst gleich weitergeleitet)');
+                
+            } catch (error) {
+                alert('❌ FEHLER beim Login: ' + error.message);
+                console.error('Login Fehler:', error);
+            }
+        };
+
+        // Handle Redirect Result (fängt Rückkehr von Google ab)
+        console.log('⏳ Prüfe ob Redirect-Login läuft...');
+        auth.getRedirectResult()
+            .then((result) => {
+                if (result.user) {
+                    console.log('✅ Login erfolgreich (Redirect):', result.user.displayName);
+                    updateSyncStatus('syncing', 'Lade Daten...');
+                }
+            })
+            .catch((error) => {
+                console.error('❌ Redirect Fehler:', error);
+                // Nur echte Fehler anzeigen, nicht "popup-closed" etc.
+                if (error.code && 
+                    error.code !== 'auth/popup-closed-by-user' && 
+                    error.code !== 'auth/cancelled-popup-request' &&
+                    error.code !== 'auth/network-request-failed') {
+                    alert('Login fehlgeschlagen: ' + error.message);
+                }
+            });
+
+        // Logout
+        document.getElementById('logoutBtn').onclick = () => {
+            if (confirm('Wirklich abmelden?')) {
+                console.log('👋 Benutzer meldet sich ab');
+                auth.signOut();
+            }
+        };
+
+        // Auth State Observer
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('appContainer').style.display = 'block';
+                
+                // User Info anzeigen
+                document.getElementById('userName').textContent = user.displayName || 'Unbekannt';
+                document.getElementById('userEmail').textContent = user.email;
+                document.getElementById('userInitial').textContent = user.displayName ? user.displayName[0].toUpperCase() : 'U';
+                
+                if (user.photoURL) {
+                    document.getElementById('userAvatar').innerHTML = `<img src="${user.photoURL}" alt="Avatar">`;
+                }
+                
+                // Daten laden
+                loadDataFromFirestore();
+                setupRealtimeListeners();
+                
+            } else {
+                currentUser = null;
+                document.getElementById('loginScreen').classList.remove('hidden');
+                document.getElementById('appContainer').style.display = 'none';
+            }
+        });
+
+        // =========================================
+        // FIRESTORE OPERATIONS
+        // =========================================
+        
+        function getUserRef() {
+            if (!currentUser) return null;
+            return db.collection('users').doc(currentUser.uid);
+        }
+
+        function loadDataFromFirestore() {
+            const userRef = getUserRef();
+            if (!userRef) return;
+
+            updateSyncStatus('syncing', 'Lade Daten...');
+
+            Promise.all([
+                userRef.collection('entries').get(),
+                userRef.collection('projects').get()
+            ]).then(([entriesSnapshot, projectsSnapshot]) => {
+                
+                // Entries laden
+                entries = [];
+                entriesSnapshot.forEach((doc) => {
+                    entries.push({ id: doc.id, ...doc.data() });
+                });
+
+                // Projekte laden (falls vorhanden, sonst Standard-Projekte)
+                if (!projectsSnapshot.empty) {
+                    projects = [];
+                    projectsSnapshot.forEach((doc) => {
+                        projects.push({ id: doc.id, ...doc.data() });
+                    });
+                } else {
+                    // Standard-Projekte in Firestore speichern
+                    projects.forEach(proj => {
+                        userRef.collection('projects').doc(proj.id).set(proj);
+                    });
+                }
+
+                updateUI();
+                updateSyncStatus('synced', 'Synchronisiert');
+                
+            }).catch((error) => {
+                console.error('Fehler beim Laden:', error);
+                updateSyncStatus('offline', 'Fehler');
+            });
+        }
+
+        function setupRealtimeListeners() {
+            const userRef = getUserRef();
+            if (!userRef) return;
+
+            // Entries Listener
+            userRef.collection('entries').onSnapshot((snapshot) => {
+                snapshot.docChanges().forEach((change) => {
+                    if (change.type === 'added' && !entries.find(e => e.id === change.doc.id)) {
+                        entries.push({ id: change.doc.id, ...change.doc.data() });
+                    }
+                    if (change.type === 'modified') {
+                        const index = entries.findIndex(e => e.id === change.doc.id);
+                        if (index !== -1) {
+                            entries[index] = { id: change.doc.id, ...change.doc.data() };
+                        }
+                    }
+                    if (change.type === 'removed') {
+                        entries = entries.filter(e => e.id !== change.doc.id);
+                    }
+                });
+                updateUI();
+            });
+
+            // Projects Listener
+            userRef.collection('projects').onSnapshot((snapshot) => {
+                snapshot.docChanges().forEach((change) => {
+                    if (change.type === 'added' && !projects.find(p => p.id === change.doc.id)) {
+                        projects.push({ id: change.doc.id, ...change.doc.data() });
+                    }
+                    if (change.type === 'modified') {
+                        const index = projects.findIndex(p => p.id === change.doc.id);
+                        if (index !== -1) {
+                            projects[index] = { id: change.doc.id, ...change.doc.data() };
+                        }
+                    }
+                    if (change.type === 'removed') {
+                        projects = projects.filter(p => p.id !== change.doc.id);
+                    }
+                });
+                updateUI();
+            });
+        }
+
+        async function saveEntry(entry) {
+            const userRef = getUserRef();
+            if (!userRef) return;
+
+            try {
+                if (entry.id) {
+                    // Update existing
+                    await userRef.collection('entries').doc(entry.id).update(entry);
+                } else {
+                    // Create new
+                    const docRef = await userRef.collection('entries').add(entry);
+                    entry.id = docRef.id;
+                }
+                updateSyncStatus('synced', 'Gespeichert');
+                return entry.id;
+            } catch (error) {
+                console.error('Fehler beim Speichern:', error);
+                updateSyncStatus('offline', 'Fehler');
+                return null;
+            }
+        }
+
+        async function deleteEntry(entryId) {
+            const userRef = getUserRef();
+            if (!userRef) return;
+
+            try {
+                await userRef.collection('entries').doc(entryId).delete();
+                updateSyncStatus('synced', 'Gelöscht');
+            } catch (error) {
+                console.error('Fehler beim Löschen:', error);
+                updateSyncStatus('offline', 'Fehler');
+            }
+        }
+
+        async function saveProject(project) {
+            const userRef = getUserRef();
+            if (!userRef) return;
+
+            try {
+                if (project.id) {
+                    await userRef.collection('projects').doc(project.id).set(project);
+                } else {
+                    const docRef = await userRef.collection('projects').add(project);
+                    project.id = docRef.id;
+                }
+                updateSyncStatus('synced', 'Gespeichert');
+                return project.id;
+            } catch (error) {
+                console.error('Fehler beim Speichern:', error);
+                updateSyncStatus('offline', 'Fehler');
+                return null;
+            }
+        }
+
+        async function deleteProject(projectId) {
+            const userRef = getUserRef();
+            if (!userRef) return;
+
+            try {
+                await userRef.collection('projects').doc(projectId).delete();
+                updateSyncStatus('synced', 'Gelöscht');
+            } catch (error) {
+                console.error('Fehler beim Löschen:', error);
+                updateSyncStatus('offline', 'Fehler');
+            }
+        }
+
+        // =========================================
+        // UI HELPER FUNCTIONS
+        // =========================================
+        
+        function updateSyncStatus(status, text) {
+            const syncStatus = document.getElementById('syncStatus');
+            const syncText = document.getElementById('syncText');
+            
+            syncStatus.className = 'sync-status ' + status;
+            syncText.textContent = text;
+        }
+
+        function showWarning(title, text) {
+            const banner = document.getElementById('warningBanner');
+            document.getElementById('warningTitle').textContent = title;
+            document.getElementById('warningText').textContent = text || '';
+            banner.classList.add('show');
+            
+            setTimeout(() => {
+                banner.classList.remove('show');
+            }, 5000);
+        }
+
+        function formatDuration(seconds) {
+            const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+            const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+            const s = (seconds % 60).toString().padStart(2, '0');
+            return `${h}:${m}:${s}`;
+        }
+
+        function formatDate(date) {
+            return new Date(date).toLocaleDateString('de-DE');
+        }
+
+        function formatTime(date) {
+            return new Date(date).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        // =========================================
+        // TIMER FUNCTIONS
+        // =========================================
+        
+        function toggleStopwatch() {
+            if (countdownInterval) {
+                showWarning('Countdown läuft bereits', 'Bitte stoppe zuerst den Countdown');
+                return;
+            }
+
+            const projectId = document.getElementById('projectSelect').value;
+            if (!projectId) {
+                showWarning('Kein Projekt gewählt', 'Bitte wähle ein Projekt aus');
+                return;
+            }
+
+            if (stopwatchInterval) {
+                stopStopwatch();
+            } else {
+                startStopwatch();
+            }
+        }
+
+        function startStopwatch() {
+            stopwatchStart = Date.now();
+            document.getElementById('stopwatchBox').classList.add('active');
+            
+            stopwatchInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - stopwatchStart) / 1000);
+                document.getElementById('stopwatchDisplay').textContent = formatDuration(elapsed);
+            }, 1000);
+        }
+
+        function stopStopwatch() {
+            clearInterval(stopwatchInterval);
+            stopwatchInterval = null;
+            
+            const duration = Math.floor((Date.now() - stopwatchStart) / 1000);
+            const projectId = document.getElementById('projectSelect').value;
+            
+            const entry = {
+                projectId: projectId,
+                startTime: stopwatchStart,
+                endTime: Date.now(),
+                duration: duration,
+                location: currentLocation,
+                date: new Date().toISOString().split('T')[0]
+            };
+
+            if (checkTimeConflict(entry)) {
+                if (!confirm('⚠️ Zeitüberschneidung erkannt!\n\nMöchtest du trotzdem speichern?')) {
+                    document.getElementById('stopwatchBox').classList.remove('active');
+                    document.getElementById('stopwatchDisplay').textContent = '00:00:00';
+                    return;
+                }
+            }
+
+            saveEntry(entry);
+            
+            document.getElementById('stopwatchBox').classList.remove('active');
+            document.getElementById('stopwatchDisplay').textContent = '00:00:00';
+            stopwatchStart = null;
+            
+            showWarning('✅ Gespeichert', `${formatDuration(duration)} erfasst`);
+        }
+
+        function toggleCountdown() {
+            if (stopwatchInterval) {
+                showWarning('Stoppuhr läuft bereits', 'Bitte stoppe zuerst die Stoppuhr');
+                return;
+            }
+
+            const projectId = document.getElementById('projectSelect').value;
+            if (!projectId) {
+                showWarning('Kein Projekt gewählt', 'Bitte wähle ein Projekt aus');
+                return;
+            }
+
+            if (countdownInterval) {
+                stopCountdown();
+            } else {
+                const minutes = parseInt(document.getElementById('countdownInput').value) || 90;
+                startCountdown(minutes * 60);
+            }
+        }
+
+        function startCountdown(seconds) {
+            countdownDuration = seconds;
+            countdownStart = Date.now();
+            document.getElementById('countdownBox').classList.add('active');
+            document.getElementById('countdownInputGroup').style.display = 'none';
+            
+            countdownInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - countdownStart) / 1000);
+                const remaining = countdownDuration - elapsed;
+                
+                if (remaining <= 0) {
+                    stopCountdown();
+                    showWarning('⏰ Countdown beendet!', 'Zeit ist abgelaufen');
+                } else {
+                    document.getElementById('countdownDisplay').textContent = formatDuration(remaining);
+                }
+            }, 1000);
+        }
+
+        function stopCountdown() {
+            clearInterval(countdownInterval);
+            countdownInterval = null;
+            
+            const elapsed = Math.floor((Date.now() - countdownStart) / 1000);
+            const duration = Math.min(elapsed, countdownDuration);
+            const projectId = document.getElementById('projectSelect').value;
+            
+            const entry = {
+                projectId: projectId,
+                startTime: countdownStart,
+                endTime: Date.now(),
+                duration: duration,
+                location: currentLocation,
+                date: new Date().toISOString().split('T')[0]
+            };
+
+            if (checkTimeConflict(entry)) {
+                if (!confirm('⚠️ Zeitüberschneidung erkannt!\n\nMöchtest du trotzdem speichern?')) {
+                    document.getElementById('countdownBox').classList.remove('active');
+                    document.getElementById('countdownDisplay').textContent = '00:00:00';
+                    document.getElementById('countdownInputGroup').style.display = 'block';
+                    return;
+                }
+            }
+
+            saveEntry(entry);
+            
+            document.getElementById('countdownBox').classList.remove('active');
+            document.getElementById('countdownDisplay').textContent = '00:00:00';
+            document.getElementById('countdownInputGroup').style.display = 'block';
+            countdownStart = null;
+            countdownDuration = 0;
+            
+            showWarning('✅ Gespeichert', `${formatDuration(duration)} erfasst`);
+        }
+
+        function checkTimeConflict(newEntry) {
+            return entries.some(entry => {
+                if (entry.id === newEntry.id) return false;
+                
+                const entryStart = entry.startTime;
+                const entryEnd = entry.endTime;
+                const newStart = newEntry.startTime;
+                const newEnd = newEntry.endTime;
+                
+                return (newStart < entryEnd && newEnd > entryStart);
+            });
+        }
+
+        function setLocation(loc) {
+            currentLocation = loc;
+            document.querySelectorAll('.location-option').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+
+        function quickSave() {
+            const projectId = document.getElementById('projectSelect').value;
+            if (!projectId) {
+                showWarning('Kein Projekt gewählt', 'Bitte wähle ein Projekt aus');
+                return;
+            }
+
+            const now = Date.now();
+            const entry = {
+                projectId: projectId,
+                startTime: now,
+                endTime: now,
+                duration: 0,
+                location: currentLocation,
+                date: new Date().toISOString().split('T')[0]
+            };
+
+            saveEntry(entry);
+            showWarning('✅ Gespeichert', 'Aktueller Zeitpunkt erfasst');
+        }
+
+        // =========================================
+        // NAVIGATION
+        // =========================================
+        
+        function showPage(pageName) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            
+            document.getElementById(pageName + 'Page').classList.add('active');
+            event.target.closest('.nav-item').classList.add('active');
+            
+            if (pageName === 'dashboard') {
+                renderDashboard();
+            }
+            if (pageName === 'projects') {
+                renderProjectsList();
+            }
+        }
+
+        // =========================================
+        // UPDATE UI
+        // =========================================
+        
+        function updateUI() {
+            updateProjectSelects();
+            renderTodayEntries();
+            renderProjectsList();
+        }
+
+        function updateProjectSelects() {
+            const selects = [
+                document.getElementById('projectSelect'),
+                document.getElementById('editProject')
+            ];
+
+            selects.forEach(select => {
+                const currentValue = select.value;
+                select.innerHTML = '<option value="">Projekt wählen...</option>';
+                
+                projects.forEach(project => {
+                    const option = document.createElement('option');
+                    option.value = project.id;
+                    option.textContent = project.name;
+                    option.style.color = project.color;
+                    select.appendChild(option);
+                });
+                
+                if (currentValue) {
+                    select.value = currentValue;
+                }
+            });
+        }
+
+        function renderTodayEntries() {
+            const today = new Date().toISOString().split('T')[0];
+            const todayEntries = entries.filter(e => e.date === today).sort((a, b) => b.startTime - a.startTime);
+            
+            const container = document.getElementById('todayEntries');
+            
+            if (todayEntries.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">📝</div>
+                        <div class="empty-title">Noch keine Einträge</div>
+                        <div class="empty-text">Starte einen Timer, um zu beginnen</div>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = todayEntries.map(entry => {
+                const project = projects.find(p => p.id === entry.projectId);
+                const projectName = project ? project.name : 'Unbekannt';
+                const projectColor = project ? project.color : '#999';
+                
+                return `
+                    <div class="entry-item" style="border-left-color: ${projectColor}">
+                        <div class="entry-info">
+                            <div class="entry-date">${formatDate(entry.date)}</div>
+                            <div class="entry-project">${projectName}</div>
+                            <div class="entry-time">
+                                ${formatTime(entry.startTime)} - ${formatTime(entry.endTime)} 
+                                (${formatDuration(entry.duration)})
+                            </div>
+                            <span class="entry-location">
+                                ${entry.location === 'homeoffice' ? '🏠 Homeoffice' : '🏢 Büro'}
+                            </span>
+                        </div>
+                        <div class="entry-actions">
+                            <button class="action-btn edit" onclick="openEditModal('${entry.id}')">✏️</button>
+                            <button class="action-btn delete" onclick="confirmDelete('${entry.id}')">🗑️</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderProjectsList() {
+            const container = document.getElementById('projectsList');
+            
+            if (projects.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">📁</div>
+                        <div class="empty-title">Keine Projekte</div>
+                        <div class="empty-text">Erstelle dein erstes Projekt</div>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = projects.map(project => {
+                const projectEntries = entries.filter(e => e.projectId === project.id);
+                const totalSeconds = projectEntries.reduce((sum, e) => sum + e.duration, 0);
+                const totalHours = (totalSeconds / 3600).toFixed(1);
+                
+                return `
+                    <div class="entry-item" style="border-left-color: ${project.color}">
+                        <div class="entry-info">
+                            <div class="entry-project">${project.name}</div>
+                            <div class="entry-time">${totalHours} Stunden • ${projectEntries.length} Einträge</div>
+                        </div>
+                        <div class="entry-actions">
+                            <button class="action-btn edit" onclick="renameProject('${project.id}')">✏️</button>
+                            <button class="action-btn delete" onclick="confirmDeleteProject('${project.id}')">🗑️</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // =========================================
+        // DASHBOARD
+        // =========================================
+        
+        function renderDashboard() {
+            const today = new Date().toISOString().split('T')[0];
+            const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+            // Stats
+            const todayHours = entries.filter(e => e.date === today).reduce((sum, e) => sum + e.duration, 0) / 3600;
+            const weekHours = entries.filter(e => e.date >= weekAgo).reduce((sum, e) => sum + e.duration, 0) / 3600;
+            const monthHours = entries.filter(e => e.date >= monthAgo).reduce((sum, e) => sum + e.duration, 0) / 3600;
+
+            document.getElementById('statTodayHours').textContent = todayHours.toFixed(1);
+            document.getElementById('statWeekHours').textContent = weekHours.toFixed(1);
+            document.getElementById('statMonthHours').textContent = monthHours.toFixed(1);
+            document.getElementById('statTotalProjects').textContent = projects.length;
+
+            // Chart
+            renderWeeklyChart();
+        }
+
+        function renderWeeklyChart() {
+            const canvas = document.getElementById('chartWeekly');
+            const ctx = canvas.getContext('2d');
+
+            // Destroy existing chart
+            if (window.weeklyChart) {
+                window.weeklyChart.destroy();
+            }
+
+            // Prepare data
+            const days = [];
+            const hours = [];
+            
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+                const dateStr = date.toISOString().split('T')[0];
+                const dayName = date.toLocaleDateString('de-DE', { weekday: 'short' });
+                
+                days.push(dayName);
+                
+                const dayHours = entries
+                    .filter(e => e.date === dateStr)
+                    .reduce((sum, e) => sum + e.duration, 0) / 3600;
+                
+                hours.push(dayHours);
+            }
+
+            window.weeklyChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: days,
+                    datasets: [{
+                        label: 'Stunden',
+                        data: hours,
+                        backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                        borderColor: 'rgba(102, 126, 234, 1)',
+                        borderWidth: 2,
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + 'h';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            canvas.style.height = '300px';
+        }
+
+        // =========================================
+        // EDIT ENTRY
+        // =========================================
+        
+        function openEditModal(entryId) {
+            const entry = entries.find(e => e.id === entryId);
+            if (!entry) return;
+
+            editingEntryId = entryId;
+
+            document.getElementById('editDate').value = entry.date;
+            document.getElementById('editProject').value = entry.projectId;
+            document.getElementById('editStartTime').value = formatTime(entry.startTime);
+            document.getElementById('editEndTime').value = formatTime(entry.endTime);
+            
+            setEditLocation(entry.location);
+
+            document.getElementById('editModal').classList.add('active');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.remove('active');
+            editingEntryId = null;
+        }
+
+        function setEditLocation(loc) {
+            document.getElementById('editHomeoffice').classList.remove('active');
+            document.getElementById('editOffice').classList.remove('active');
+            
+            if (loc === 'homeoffice') {
+                document.getElementById('editHomeoffice').classList.add('active');
+            } else {
+                document.getElementById('editOffice').classList.add('active');
+            }
+        }
+
+        async function saveEdit() {
+            if (!editingEntryId) return;
+
+            const date = document.getElementById('editDate').value;
+            const projectId = document.getElementById('editProject').value;
+            const startTimeStr = document.getElementById('editStartTime').value;
+            const endTimeStr = document.getElementById('editEndTime').value;
+            const location = document.getElementById('editHomeoffice').classList.contains('active') ? 'homeoffice' : 'office';
+
+            if (!date || !projectId || !startTimeStr || !endTimeStr) {
+                showWarning('Fehlende Angaben', 'Bitte fülle alle Felder aus');
+                return;
+            }
+
+            const startTime = new Date(date + 'T' + startTimeStr).getTime();
+            const endTime = new Date(date + 'T' + endTimeStr).getTime();
+
+            if (endTime <= startTime) {
+                showWarning('Ungültige Zeit', 'Endzeit muss nach Startzeit liegen');
+                return;
+            }
+
+            const duration = Math.floor((endTime - startTime) / 1000);
+
+            const entry = {
+                id: editingEntryId,
+                projectId,
+                startTime,
+                endTime,
+                duration,
+                location,
+                date
+            };
+
+            if (checkTimeConflict(entry)) {
+                if (!confirm('⚠️ Zeitüberschneidung erkannt!\n\nMöchtest du trotzdem speichern?')) {
+                    return;
+                }
+            }
+
+            await saveEntry(entry);
+            closeEditModal();
+            showWarning('✅ Gespeichert', 'Eintrag wurde aktualisiert');
+        }
+
+        function confirmDelete(entryId) {
+            if (confirm('Eintrag wirklich löschen?')) {
+                deleteEntry(entryId);
+                showWarning('✅ Gelöscht', 'Eintrag wurde entfernt');
+            }
+        }
+
+        // =========================================
+        // PROJECTS
+        // =========================================
+        
+        function showAddProjectModal() {
+            document.getElementById('newProjectName').value = '';
+            document.getElementById('newProjectColor').value = '#667eea';
+            document.getElementById('addProjectModal').classList.add('active');
+        }
+
+        function closeAddProjectModal() {
+            document.getElementById('addProjectModal').classList.remove('active');
+        }
+
+        async function addProject() {
+            const name = document.getElementById('newProjectName').value.trim();
+            const color = document.getElementById('newProjectColor').value;
+
+            if (!name) {
+                showWarning('Kein Name', 'Bitte gib einen Projektnamen ein');
+                return;
+            }
+
+            const project = {
+                name,
+                color,
+                createdAt: Date.now()
+            };
+
+            await saveProject(project);
+            closeAddProjectModal();
+            showWarning('✅ Erstellt', 'Projekt wurde hinzugefügt');
+        }
+
+        async function renameProject(projectId) {
+            const project = projects.find(p => p.id === projectId);
+            if (!project) return;
+
+            const newName = prompt('Neuer Projektname:', project.name);
+            if (!newName || newName === project.name) return;
+
+            project.name = newName;
+            await saveProject(project);
+            
+            showWarning('✅ Umbenannt', 'Projekt wurde aktualisiert');
+        }
+
+        function confirmDeleteProject(projectId) {
+            const projectEntries = entries.filter(e => e.projectId === projectId);
+            
+            if (projectEntries.length > 0) {
+                if (!confirm(`Dieses Projekt hat ${projectEntries.length} Zeiteinträge.\n\nWirklich löschen? Die Einträge bleiben erhalten.`)) {
+                    return;
+                }
+            } else {
+                if (!confirm('Projekt wirklich löschen?')) {
+                    return;
+                }
+            }
+
+            deleteProject(projectId);
+            showWarning('✅ Gelöscht', 'Projekt wurde entfernt');
+        }
+
+        // =========================================
+        // EXPORT FUNCTIONS
+        // =========================================
+        
+        function exportData() {
+            const range = document.getElementById('exportRange').value;
+            const format = document.getElementById('exportFormat').value;
+
+            let filteredEntries = getFilteredEntries(range);
+
+            if (filteredEntries.length === 0) {
+                showWarning('Keine Daten', 'Keine Einträge im gewählten Zeitraum');
+                return;
+            }
+
+            switch (format) {
+                case 'xlsx':
+                    exportExcel(filteredEntries);
+                    break;
+                case 'pdf':
+                    exportPDF(filteredEntries);
+                    break;
+                case 'csv':
+                    exportCSV(filteredEntries);
+                    break;
+                case 'json':
+                    exportJSON();
+                    break;
+            }
+        }
+
+        function getFilteredEntries(range) {
+            const today = new Date().toISOString().split('T')[0];
+            
+            switch (range) {
+                case 'today':
+                    return entries.filter(e => e.date === today);
+                case 'week':
+                    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                    return entries.filter(e => e.date >= weekAgo);
+                case 'month':
+                    const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                    return entries.filter(e => e.date >= monthAgo);
+                case 'all':
+                default:
+                    return entries;
+            }
+        }
+
+        function exportExcel(filteredEntries) {
+            const data = filteredEntries.map(e => {
+                const project = projects.find(p => p.id === e.projectId);
+                return {
+                    'Datum': formatDate(e.date),
+                    'Projekt': project ? project.name : 'Unbekannt',
+                    'Start': formatTime(e.startTime),
+                    'Ende': formatTime(e.endTime),
+                    'Dauer (h)': (e.duration / 3600).toFixed(2),
+                    'Arbeitsort': e.location === 'homeoffice' ? 'Homeoffice' : 'Büro'
+                };
+            });
+
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Zeiterfassung');
+            
+            const filename = `Zeiterfassung_${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, filename);
+            
+            showWarning('✅ Exportiert', `${filename} wurde heruntergeladen`);
+        }
+
+        function exportPDF(filteredEntries) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            doc.setFontSize(20);
+            doc.text('Zeiterfassung - Bericht', 20, 20);
+            
+            doc.setFontSize(10);
+            doc.text(`Erstellt am: ${formatDate(Date.now())}`, 20, 30);
+            
+            let y = 45;
+            doc.setFontSize(12);
+            
+            filteredEntries.forEach((entry, index) => {
+                if (y > 270) {
+                    doc.addPage();
+                    y = 20;
+                }
+                
+                const project = projects.find(p => p.id === entry.projectId);
+                const projectName = project ? project.name : 'Unbekannt';
+                const hours = (entry.duration / 3600).toFixed(2);
+                
+                doc.text(`${formatDate(entry.date)} | ${projectName}`, 20, y);
+                doc.text(`${formatTime(entry.startTime)} - ${formatTime(entry.endTime)} (${hours}h)`, 20, y + 5);
+                doc.text(`Ort: ${entry.location === 'homeoffice' ? 'Homeoffice' : 'Büro'}`, 20, y + 10);
+                
+                y += 20;
+            });
+
+            const filename = `Zeiterfassung_${new Date().toISOString().split('T')[0]}.pdf`;
+            doc.save(filename);
+            
+            showWarning('✅ Exportiert', `${filename} wurde heruntergeladen`);
+        }
+
+        function exportCSV(filteredEntries) {
+            let csv = '\ufeff'; // BOM for UTF-8
+            csv += 'Datum,Projekt,Start,Ende,Dauer (h),Arbeitsort\n';
+            
+            filteredEntries.forEach(e => {
+                const project = projects.find(p => p.id === e.projectId);
+                const projectName = project ? project.name : 'Unbekannt';
+                const hours = (e.duration / 3600).toFixed(2);
+                const location = e.location === 'homeoffice' ? 'Homeoffice' : 'Büro';
+                
+                csv += `"${formatDate(e.date)}","${projectName}","${formatTime(e.startTime)}","${formatTime(e.endTime)}",${hours},"${location}"\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Zeiterfassung_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            showWarning('✅ Exportiert', 'CSV wurde heruntergeladen');
+        }
+
+        function exportJSON() {
+            const backup = {
+                version: '4.2-firebase',
+                exportDate: new Date().toISOString(),
+                user: currentUser ? currentUser.email : 'unknown',
+                entries: entries,
+                projects: projects
+            };
+
+            const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Zeiterfassung_Backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            showWarning('✅ Backup erstellt', 'JSON-Datei wurde heruntergeladen');
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const backup = JSON.parse(e.target.result);
+                    
+                    if (!backup.entries || !backup.projects) {
+                        throw new Error('Ungültiges Backup-Format');
+                    }
+
+                    if (!confirm(`Backup vom ${formatDate(backup.exportDate)} importieren?\n\nDies überschreibt NICHT deine vorhandenen Daten, sondern fügt neue hinzu.`)) {
+                        return;
+                    }
+
+                    // Import projects
+                    for (const proj of backup.projects) {
+                        if (!projects.find(p => p.name === proj.name)) {
+                            delete proj.id; // Neue ID wird von Firestore generiert
+                            await saveProject(proj);
+                        }
+                    }
+
+                    // Import entries
+                    for (const entry of backup.entries) {
+                        delete entry.id; // Neue ID wird von Firestore generiert
+                        await saveEntry(entry);
+                    }
+
+                    showWarning('✅ Import erfolgreich', `${backup.entries.length} Einträge importiert`);
+                    
+                } catch (error) {
+                    console.error('Import Fehler:', error);
+                    showWarning('❌ Import fehlgeschlagen', 'Ungültige Backup-Datei');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // =========================================
+        // INIT
+        // =======
