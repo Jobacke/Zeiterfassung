@@ -1,0 +1,1550 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#667eea">
+    <link rel="manifest" href="./manifest.json">
+    <title>⏱️ Zeiterfassung Pro</title>
+    
+    <!-- External Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            padding-bottom: 100px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 28px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+
+        .timer-display {
+            text-align: center;
+            font-size: 48px;
+            font-weight: bold;
+            color: #667eea;
+            margin: 20px 0;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 8px 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #757f9a 0%, #d7dde8 100%);
+            color: #333;
+        }
+
+        .btn-small {
+            padding: 8px 15px;
+            font-size: 14px;
+            width: auto;
+            display: inline-block;
+        }
+
+        .location-toggle {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .location-btn {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .location-btn.active {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .project-select, .form-select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 12px;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+
+        .status {
+            text-align: center;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-weight: 600;
+        }
+
+        .status.idle {
+            background: #f0f0f0;
+            color: #666;
+        }
+
+        .status.running {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .entry {
+            padding: 15px;
+            border-left: 4px solid #667eea;
+            background: #f8f9fa;
+            margin: 10px 0;
+            border-radius: 8px;
+        }
+
+        .entry-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .entry-project {
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .entry-duration {
+            font-weight: bold;
+            color: #155724;
+        }
+
+        .entry-details {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+
+        .project-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-left: 4px solid;
+            background: #f8f9fa;
+            margin: 10px 0;
+            border-radius: 8px;
+        }
+
+        .project-name {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .project-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            display: flex;
+            justify-content: space-around;
+            padding: 15px;
+            box-shadow: 0 -4px 12px rgba(0,0,0,0.1);
+        }
+
+        .nav-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 10px 20px;
+            transition: all 0.3s;
+        }
+
+        .nav-btn.active {
+            color: #667eea;
+            transform: scale(1.2);
+        }
+
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            color: #856404;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-weight: 600;
+        }
+
+        .success {
+            background: #d4edda;
+            border: 1px solid #28a745;
+            color: #155724;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-weight: 600;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 22px;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .close-btn {
+            font-size: 28px;
+            color: #999;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            line-height: 1;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .time-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .export-section {
+            margin: 20px 0;
+        }
+
+        .export-options {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin: 20px 0;
+        }
+
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .time-inputs {
+                grid-template-columns: 1fr;
+            }
+
+            .export-options {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⏱️ Zeiterfassung Pro</h1>
+
+        <!-- TIMER PAGE -->
+        <div id="timerPage" class="page active">
+            <div class="card">
+                <h2>⏱️ Timer</h2>
+                
+                <div id="status" class="status idle">
+                    Bereit zum Starten
+                </div>
+
+                <div class="timer-display" id="timerDisplay">00:00:00</div>
+
+                <select id="projectSelect" class="project-select">
+                    <option value="">Projekt wählen...</option>
+                </select>
+
+                <div class="location-toggle">
+                    <button class="location-btn active" data-location="office" onclick="selectLocation('office')">
+                        🏢 Büro
+                    </button>
+                    <button class="location-btn" data-location="homeoffice" onclick="selectLocation('homeoffice')">
+                        🏠 Homeoffice
+                    </button>
+                </div>
+
+                <button id="startBtn" class="btn btn-success" onclick="startTimer()">
+                    ▶️ Starten
+                </button>
+                <button id="stopBtn" class="btn btn-danger" onclick="stopTimer()" style="display:none;">
+                    ⏹️ Stoppen
+                </button>
+            </div>
+
+            <div class="card">
+                <button class="btn btn-primary" onclick="openManualEntryModal()">
+                    ✏️ Manuellen Eintrag erstellen
+                </button>
+            </div>
+        </div>
+
+        <!-- HISTORY PAGE -->
+        <div id="historyPage" class="page">
+            <div class="card">
+                <h2>📋 Verlauf</h2>
+                <div id="entriesList"></div>
+            </div>
+        </div>
+
+        <!-- DASHBOARD PAGE -->
+        <div id="dashboardPage" class="page">
+            <div class="card">
+                <h2>📊 Dashboard</h2>
+                <div class="stats-grid" id="dashboardStats"></div>
+                
+                <div class="chart-container">
+                    <canvas id="weekChart"></canvas>
+                </div>
+
+                <h3 style="margin-top: 30px; color: #667eea;">Projekte Übersicht</h3>
+                <div id="projectStats"></div>
+            </div>
+        </div>
+
+        <!-- PROJECTS PAGE -->
+        <div id="projectsPage" class="page">
+            <div class="card">
+                <h2>📁 Projekte</h2>
+                <button class="btn btn-primary" onclick="openProjectModal()">
+                    ➕ Neues Projekt
+                </button>
+                <div id="projectsList"></div>
+            </div>
+        </div>
+
+        <!-- EXPORT PAGE -->
+        <div id="exportPage" class="page">
+            <div class="card">
+                <h2>📤 Export</h2>
+                
+                <div class="form-group">
+                    <label class="form-label">Zeitraum wählen:</label>
+                    <select id="exportRange" class="form-select">
+                        <option value="today">Heute</option>
+                        <option value="week">Diese Woche</option>
+                        <option value="month">Dieser Monat</option>
+                        <option value="all">Alle Einträge</option>
+                    </select>
+                </div>
+
+                <div class="export-options">
+                    <button class="btn btn-success" onclick="exportAs('xlsx')">
+                        📊 Excel (XLSX)
+                    </button>
+                    <button class="btn btn-danger" onclick="exportAs('pdf')">
+                        📄 PDF
+                    </button>
+                    <button class="btn btn-primary" onclick="exportAs('csv')">
+                        📋 CSV
+                    </button>
+                    <button class="btn btn-secondary" onclick="exportAs('json')">
+                        💾 JSON Backup
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- SETTINGS PAGE -->
+        <div id="settingsPage" class="page">
+            <div class="card">
+                <h2>⚙️ Einstellungen</h2>
+                
+                <button class="btn btn-secondary" onclick="importData()">
+                    📥 Daten importieren
+                </button>
+                
+                <button class="btn btn-danger" onclick="clearAllData()">
+                    🗑️ Alle Daten löschen
+                </button>
+
+                <input type="file" id="importFile" accept=".json" style="display:none;" onchange="handleImport(event)">
+            </div>
+        </div>
+    </div>
+
+    <!-- MANUAL ENTRY MODAL -->
+    <div id="manualEntryModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">✏️ Manueller Zeiteintrag</h3>
+                <button class="close-btn" onclick="closeManualEntryModal()">×</button>
+            </div>
+
+            <div id="modalMessage"></div>
+
+            <form onsubmit="saveManualEntry(event)">
+                <div class="form-group">
+                    <label class="form-label">📅 Datum</label>
+                    <input type="date" id="manualDate" class="form-input" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">⏰ Zeitraum</label>
+                    <div class="time-inputs">
+                        <div>
+                            <label class="form-label" style="font-size: 14px;">Start</label>
+                            <input type="time" id="manualStartTime" class="form-input" required>
+                        </div>
+                        <div>
+                            <label class="form-label" style="font-size: 14px;">Ende</label>
+                            <input type="time" id="manualEndTime" class="form-input" required>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">📁 Projekt</label>
+                    <select id="manualProject" class="form-input" required>
+                        <option value="">Projekt wählen...</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">📍 Arbeitsort</label>
+                    <div class="location-toggle">
+                        <button type="button" class="location-btn active" data-location="office" 
+                                onclick="selectManualLocation('office')">
+                            🏢 Büro
+                        </button>
+                        <button type="button" class="location-btn" data-location="homeoffice" 
+                                onclick="selectManualLocation('homeoffice')">
+                            🏠 Homeoffice
+                        </button>
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn-secondary" onclick="closeManualEntryModal()">
+                        Abbrechen
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        💾 Speichern
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- PROJECT MODAL -->
+    <div id="projectModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="projectModalTitle">➕ Neues Projekt</h3>
+                <button class="close-btn" onclick="closeProjectModal()">×</button>
+            </div>
+
+            <form onsubmit="saveProject(event)">
+                <div class="form-group">
+                    <label class="form-label">Projektname</label>
+                    <input type="text" id="projectName" class="form-input" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Farbe</label>
+                    <input type="color" id="projectColor" class="form-input" value="#667eea">
+                </div>
+
+                <input type="hidden" id="projectId">
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn-secondary" onclick="closeProjectModal()">
+                        Abbrechen
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        💾 Speichern
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- NAVIGATION -->
+    <div class="nav">
+        <button class="nav-btn active" onclick="showPage('timer')">⏱️</button>
+        <button class="nav-btn" onclick="showPage('history')">📋</button>
+        <button class="nav-btn" onclick="showPage('dashboard')">📊</button>
+        <button class="nav-btn" onclick="showPage('projects')">📁</button>
+        <button class="nav-btn" onclick="showPage('export')">📤</button>
+        <button class="nav-btn" onclick="showPage('settings')">⚙️</button>
+    </div>
+
+    <script>
+        // ========================================
+        // DATA STRUCTURES
+        // ========================================
+        
+        let projects = [
+            { id: 1, name: 'Personalratsarbeit', color: '#667eea' },
+            { id: 2, name: 'ÖPR-Sitzung', color: '#11998e' },
+            { id: 3, name: 'GPR-Sitzung', color: '#38ef7d' },
+            { id: 4, name: 'Daily', color: '#f093fb' },
+            { id: 5, name: 'JourFixe TuG', color: '#4facfe' },
+            { id: 6, name: 'JourFixe DS/ITS', color: '#43e97b' },
+            { id: 7, name: 'Reisezeit', color: '#fa709a' },
+            { id: 8, name: 'DIB-Termin', color: '#feca57' },
+            { id: 9, name: 'Sprechstunde', color: '#ff6b6b' },
+            { id: 10, name: 'ARD-Projekte', color: '#764ba2' }
+        ];
+
+        let entries = [];
+        let activeTimer = null;
+        let timerInterval = null;
+        let currentLocation = 'office';
+        let manualLocation = 'office';
+        let weekChart = null;
+
+        // ========================================
+        // INITIALIZATION
+        // ========================================
+
+        function init() {
+            loadData();
+            populateProjectSelects();
+            setDefaultDate();
+            renderHistory();
+            renderDashboard();
+            renderProjectsList();
+        }
+
+        function loadData() {
+            const saved = localStorage.getItem('timeTrackingData');
+            if (saved) {
+                const data = JSON.parse(saved);
+                entries = data.entries || [];
+                projects = data.projects || projects;
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem('timeTrackingData', JSON.stringify({
+                entries,
+                projects,
+                lastSaved: new Date().toISOString()
+            }));
+        }
+
+        function populateProjectSelects() {
+            const selects = [
+                document.getElementById('projectSelect'),
+                document.getElementById('manualProject')
+            ];
+
+            selects.forEach(select => {
+                if (select) {
+                    select.innerHTML = '<option value="">Projekt wählen...</option>';
+                    projects.forEach(project => {
+                        const option = document.createElement('option');
+                        option.value = project.id;
+                        option.textContent = project.name;
+                        select.appendChild(option);
+                    });
+                }
+            });
+        }
+
+        function setDefaultDate() {
+            const today = new Date().toISOString().split('T')[0];
+            const dateInput = document.getElementById('manualDate');
+            if (dateInput) dateInput.value = today;
+        }
+
+        // ========================================
+        // TIMER FUNCTIONS
+        // ========================================
+
+        function startTimer() {
+            const projectId = parseInt(document.getElementById('projectSelect').value);
+            
+            if (!projectId) {
+                showMessage('⚠️ Bitte wähle ein Projekt!', 'warning');
+                return;
+            }
+
+            if (activeTimer) {
+                showMessage('⚠️ Es läuft bereits ein Timer!', 'warning');
+                return;
+            }
+
+            activeTimer = {
+                projectId,
+                location: currentLocation,
+                startTime: new Date(),
+                elapsed: 0
+            };
+
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('stopBtn').style.display = 'block';
+            document.getElementById('status').className = 'status running';
+            document.getElementById('status').textContent = 'Timer läuft...';
+
+            timerInterval = setInterval(updateTimerDisplay, 100);
+        }
+
+        function stopTimer() {
+            if (!activeTimer) return;
+
+            clearInterval(timerInterval);
+            
+            const endTime = new Date();
+            const duration = Math.floor((endTime - activeTimer.startTime) / 1000);
+
+            const entry = {
+                id: Date.now(),
+                projectId: activeTimer.projectId,
+                location: activeTimer.location,
+                startTime: activeTimer.startTime.toISOString(),
+                endTime: endTime.toISOString(),
+                duration,
+                date: new Date().toISOString().split('T')[0],
+                type: 'timer'
+            };
+
+            const conflict = checkTimeConflict(
+                new Date(entry.startTime),
+                new Date(entry.endTime),
+                null
+            );
+
+            if (conflict) {
+                if (!confirm(`⚠️ ZEITKONFLIKT ERKANNT!\n\nDieser Eintrag überschneidet sich mit:\n${conflict.message}\n\nTrotzdem speichern?`)) {
+                    resetTimer();
+                    return;
+                }
+            }
+
+            entries.push(entry);
+            saveData();
+            
+            showMessage('✅ Zeiteintrag gespeichert!', 'success');
+            resetTimer();
+            renderHistory();
+            renderDashboard();
+        }
+
+        function resetTimer() {
+            activeTimer = null;
+            clearInterval(timerInterval);
+            
+            document.getElementById('timerDisplay').textContent = '00:00:00';
+            document.getElementById('startBtn').style.display = 'block';
+            document.getElementById('stopBtn').style.display = 'none';
+            document.getElementById('status').className = 'status idle';
+            document.getElementById('status').textContent = 'Bereit zum Starten';
+        }
+
+        function updateTimerDisplay() {
+            if (!activeTimer) return;
+            
+            const elapsed = Math.floor((new Date() - activeTimer.startTime) / 1000);
+            const hours = Math.floor(elapsed / 3600);
+            const minutes = Math.floor((elapsed % 3600) / 60);
+            const seconds = elapsed % 60;
+            
+            document.getElementById('timerDisplay').textContent = 
+                `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+        }
+
+        function pad(num) {
+            return num.toString().padStart(2, '0');
+        }
+
+        function selectLocation(location) {
+            currentLocation = location;
+            document.querySelectorAll('.location-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.location === location) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+
+        // ========================================
+        // MANUAL ENTRY FUNCTIONS
+        // ========================================
+
+        function openManualEntryModal() {
+            document.getElementById('manualEntryModal').classList.add('active');
+            document.getElementById('modalMessage').innerHTML = '';
+            setDefaultDate();
+        }
+
+        function closeManualEntryModal() {
+            document.getElementById('manualEntryModal').classList.remove('active');
+            document.getElementById('manualEntryModal').querySelector('form').reset();
+            setDefaultDate();
+            manualLocation = 'office';
+            selectManualLocation('office');
+        }
+
+        function selectManualLocation(location) {
+            manualLocation = location;
+            const modal = document.getElementById('manualEntryModal');
+            modal.querySelectorAll('.location-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.location === location) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+
+        function saveManualEntry(event) {
+            event.preventDefault();
+            
+            const date = document.getElementById('manualDate').value;
+            const startTime = document.getElementById('manualStartTime').value;
+            const endTime = document.getElementById('manualEndTime').value;
+            const projectId = parseInt(document.getElementById('manualProject').value);
+
+            if (!date || !startTime || !endTime || !projectId) {
+                showModalMessage('⚠️ Bitte alle Felder ausfüllen!', 'warning');
+                return;
+            }
+
+            const startDateTime = new Date(`${date}T${startTime}`);
+            const endDateTime = new Date(`${date}T${endTime}`);
+
+            if (endDateTime <= startDateTime) {
+                showModalMessage('⚠️ Die Endzeit muss nach der Startzeit liegen!', 'warning');
+                return;
+            }
+
+            const conflict = checkTimeConflict(startDateTime, endDateTime, null);
+            
+            if (conflict) {
+                if (!confirm(`⚠️ ZEITKONFLIKT ERKANNT!\n\n${conflict.message}\n\nMöchtest du den Eintrag trotzdem speichern?`)) {
+                    return;
+                }
+            }
+
+            const duration = Math.floor((endDateTime - startDateTime) / 1000);
+
+            const entry = {
+                id: Date.now(),
+                projectId,
+                location: manualLocation,
+                startTime: startDateTime.toISOString(),
+                endTime: endDateTime.toISOString(),
+                duration,
+                date,
+                type: 'manual'
+            };
+
+            entries.push(entry);
+            saveData();
+            
+            showMessage('✅ Manueller Eintrag gespeichert!', 'success');
+            closeManualEntryModal();
+            renderHistory();
+            renderDashboard();
+        }
+
+        // ========================================
+        // CONFLICT DETECTION
+        // ========================================
+
+        function checkTimeConflict(newStart, newEnd, excludeId = null) {
+            const newStartTime = new Date(newStart).getTime();
+            const newEndTime = new Date(newEnd).getTime();
+
+            for (let entry of entries) {
+                if (excludeId && entry.id === excludeId) continue;
+
+                const entryStart = new Date(entry.startTime).getTime();
+                const entryEnd = new Date(entry.endTime).getTime();
+
+                if (
+                    (newStartTime >= entryStart && newStartTime < entryEnd) ||
+                    (newEndTime > entryStart && newEndTime <= entryEnd) ||
+                    (newStartTime <= entryStart && newEndTime >= entryEnd)
+                ) {
+                    const project = projects.find(p => p.id === entry.projectId);
+                    const conflictDate = new Date(entry.startTime).toLocaleDateString('de-DE');
+                    const conflictStart = new Date(entry.startTime).toLocaleTimeString('de-DE', { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                    });
+                    const conflictEnd = new Date(entry.endTime).toLocaleTimeString('de-DE', { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                    });
+
+                    return {
+                        entry,
+                        message: `Projekt: ${project ? project.name : 'Unbekannt'}\n` +
+                                `Datum: ${conflictDate}\n` +
+                                `Zeit: ${conflictStart} - ${conflictEnd}`
+                    };
+                }
+            }
+
+            return null;
+        }
+
+        // ========================================
+        // PROJECT MANAGEMENT
+        // ========================================
+
+        function openProjectModal(projectId = null) {
+            const modal = document.getElementById('projectModal');
+            const title = document.getElementById('projectModalTitle');
+            const nameInput = document.getElementById('projectName');
+            const colorInput = document.getElementById('projectColor');
+            const idInput = document.getElementById('projectId');
+
+            if (projectId) {
+                const project = projects.find(p => p.id === projectId);
+                title.textContent = '✏️ Projekt bearbeiten';
+                nameInput.value = project.name;
+                colorInput.value = project.color;
+                idInput.value = project.id;
+            } else {
+                title.textContent = '➕ Neues Projekt';
+                nameInput.value = '';
+                colorInput.value = '#667eea';
+                idInput.value = '';
+            }
+
+            modal.classList.add('active');
+        }
+
+        function closeProjectModal() {
+            document.getElementById('projectModal').classList.remove('active');
+        }
+
+        function saveProject(event) {
+            event.preventDefault();
+
+            const name = document.getElementById('projectName').value;
+            const color = document.getElementById('projectColor').value;
+            const id = document.getElementById('projectId').value;
+
+            if (id) {
+                // Edit existing
+                const project = projects.find(p => p.id == id);
+                project.name = name;
+                project.color = color;
+            } else {
+                // Add new
+                const newId = projects.length > 0 ? Math.max(...projects.map(p => p.id)) + 1 : 1;
+                projects.push({ id: newId, name, color });
+            }
+
+            saveData();
+            populateProjectSelects();
+            renderProjectsList();
+            closeProjectModal();
+            showMessage('✅ Projekt gespeichert!', 'success');
+        }
+
+        function deleteProject(projectId) {
+            const project = projects.find(p => p.id === projectId);
+            const hasEntries = entries.some(e => e.projectId === projectId);
+
+            let confirmMsg = `Möchtest du das Projekt "${project.name}" wirklich löschen?`;
+            if (hasEntries) {
+                confirmMsg += '\n\n⚠️ ACHTUNG: Es existieren Zeiteinträge für dieses Projekt!\nDiese werden NICHT gelöscht, aber das Projekt wird als "Unbekannt" angezeigt.';
+            }
+
+            if (confirm(confirmMsg)) {
+                projects = projects.filter(p => p.id !== projectId);
+                saveData();
+                populateProjectSelects();
+                renderProjectsList();
+                showMessage('🗑️ Projekt gelöscht!', 'success');
+            }
+        }
+
+        function renderProjectsList() {
+            const container = document.getElementById('projectsList');
+            
+            if (projects.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📁</div>
+                        <p>Noch keine Projekte vorhanden</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = projects.map(project => `
+                <div class="project-item" style="border-left-color: ${project.color}">
+                    <span class="project-name">${project.name}</span>
+                    <div class="project-actions">
+                        <button class="btn btn-small btn-primary" onclick="openProjectModal(${project.id})">
+                            ✏️ Bearbeiten
+                        </button>
+                        <button class="btn btn-small btn-danger" onclick="deleteProject(${project.id})">
+                            🗑️ Löschen
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ========================================
+        // RENDERING
+        // ========================================
+
+        function renderHistory() {
+            const container = document.getElementById('entriesList');
+            
+            if (entries.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <p>Noch keine Einträge vorhanden</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const sorted = [...entries].sort((a, b) => 
+                new Date(b.startTime) - new Date(a.startTime)
+            );
+
+            container.innerHTML = sorted.map(entry => {
+                const project = projects.find(p => p.id === entry.projectId);
+                const date = new Date(entry.startTime).toLocaleDateString('de-DE');
+                const startTime = new Date(entry.startTime).toLocaleTimeString('de-DE', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+                const endTime = new Date(entry.endTime).toLocaleTimeString('de-DE', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+                const hours = (entry.duration / 3600).toFixed(2);
+                const location = entry.location === 'homeoffice' ? '🏠 Homeoffice' : '🏢 Büro';
+                const typeIcon = entry.type === 'manual' ? '✏️' : '⏱️';
+
+                return `
+                    <div class="entry" style="border-left-color: ${project ? project.color : '#667eea'}">
+                        <div class="entry-header">
+                            <span class="entry-project">
+                                ${typeIcon} ${project ? project.name : 'Unbekannt'}
+                            </span>
+                            <span class="entry-duration">${hours}h</span>
+                        </div>
+                        <div class="entry-details">
+                            📅 ${date} | ⏰ ${startTime} - ${endTime} | ${location}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderDashboard() {
+            renderDashboardStats();
+            renderWeekChart();
+            renderProjectStats();
+        }
+
+        function renderDashboardStats() {
+            const today = new Date().toISOString().split('T')[0];
+            const thisWeekStart = getWeekStart();
+            const thisMonthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+                .toISOString().split('T')[0];
+
+            const todayEntries = entries.filter(e => e.date === today);
+            const weekEntries = entries.filter(e => e.date >= thisWeekStart);
+            const monthEntries = entries.filter(e => e.date >= thisMonthStart);
+
+            const todayHours = calculateTotalHours(todayEntries);
+            const weekHours = calculateTotalHours(weekEntries);
+            const monthHours = calculateTotalHours(monthEntries);
+            const projectCount = projects.length;
+
+            document.getElementById('dashboardStats').innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${todayHours}h</div>
+                    <div class="stat-label">Heute</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${weekHours}h</div>
+                    <div class="stat-label">Diese Woche</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${monthHours}h</div>
+                    <div class="stat-label">Dieser Monat</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${projectCount}</div>
+                    <div class="stat-label">Projekte</div>
+                </div>
+            `;
+        }
+
+        function renderWeekChart() {
+            const weekData = getWeekData();
+            const ctx = document.getElementById('weekChart');
+            
+            if (weekChart) {
+                weekChart.destroy();
+            }
+
+            weekChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: weekData.labels,
+                    datasets: [{
+                        label: 'Stunden',
+                        data: weekData.hours,
+                        backgroundColor: 'rgba(102, 126, 234, 0.6)',
+                        borderColor: 'rgba(102, 126, 234, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        title: {
+                            display: true,
+                            text: 'Wochenübersicht'
+                        }
+                    }
+                }
+            });
+        }
+
+        function getWeekData() {
+            const weekStart = getWeekStart();
+            const days = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+            const labels = [];
+            const hours = [];
+
+            for (let i = 0; i < 7; i++) {
+                const date = new Date(weekStart);
+                date.setDate(date.getDate() + i);
+                const dateStr = date.toISOString().split('T')[0];
+                
+                labels.push(days[i]);
+                
+                const dayEntries = entries.filter(e => e.date === dateStr);
+                const dayHours = calculateTotalHours(dayEntries);
+                hours.push(parseFloat(dayHours));
+            }
+
+            return { labels, hours };
+        }
+
+        function renderProjectStats() {
+            const container = document.getElementById('projectStats');
+            
+            const projectHours = {};
+            entries.forEach(entry => {
+                if (!projectHours[entry.projectId]) {
+                    projectHours[entry.projectId] = 0;
+                }
+                projectHours[entry.projectId] += entry.duration / 3600;
+            });
+
+            const sortedProjects = Object.entries(projectHours)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5);
+
+            if (sortedProjects.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <p>Noch keine Projektdaten</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = sortedProjects.map(([projectId, hours]) => {
+                const project = projects.find(p => p.id == projectId);
+                return `
+                    <div class="project-item" style="border-left-color: ${project ? project.color : '#667eea'}">
+                        <span class="project-name">${project ? project.name : 'Unbekannt'}</span>
+                        <span class="entry-duration">${hours.toFixed(1)}h</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function calculateTotalHours(entries) {
+            const total = entries.reduce((sum, e) => sum + e.duration, 0);
+            return (total / 3600).toFixed(1);
+        }
+
+        function getWeekStart() {
+            const now = new Date();
+            const day = now.getDay();
+            const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+            return new Date(now.setDate(diff)).toISOString().split('T')[0];
+        }
+
+        // ========================================
+        // EXPORT FUNCTIONS
+        // ========================================
+
+        function getFilteredEntries() {
+            const range = document.getElementById('exportRange').value;
+            const today = new Date().toISOString().split('T')[0];
+            
+            switch (range) {
+                case 'today':
+                    return entries.filter(e => e.date === today);
+                case 'week':
+                    const weekStart = getWeekStart();
+                    return entries.filter(e => e.date >= weekStart);
+                case 'month':
+                    const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+                        .toISOString().split('T')[0];
+                    return entries.filter(e => e.date >= monthStart);
+                case 'all':
+                default:
+                    return entries;
+            }
+        }
+
+        function exportAs(format) {
+            const filtered = getFilteredEntries();
+            
+            if (filtered.length === 0) {
+                showMessage('⚠️ Keine Einträge im gewählten Zeitraum!', 'warning');
+                return;
+            }
+
+            switch (format) {
+                case 'xlsx':
+                    exportXLSX(filtered);
+                    break;
+                case 'pdf':
+                    exportPDF(filtered);
+                    break;
+                case 'csv':
+                    exportCSV(filtered);
+                    break;
+                case 'json':
+                    exportJSON();
+                    break;
+            }
+        }
+
+        function exportXLSX(filtered) {
+            const data = filtered.map(e => {
+                const project = projects.find(p => p.id === e.projectId);
+                return {
+                    'Datum': e.date,
+                    'Projekt': project ? project.name : 'Unbekannt',
+                    'Start': new Date(e.startTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
+                    'Ende': new Date(e.endTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
+                    'Dauer (h)': (e.duration / 3600).toFixed(2),
+                    'Arbeitsort': e.location === 'homeoffice' ? 'Homeoffice' : 'Büro'
+                };
+            });
+
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Zeiterfassung');
+            
+            const range = document.getElementById('exportRange').value;
+            const filename = `Zeiterfassung_${range}_${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, filename);
+            
+            showMessage('✅ Excel-Export erfolgreich!', 'success');
+        }
+
+        function exportPDF(filtered) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            doc.setFontSize(20);
+            doc.text('Zeiterfassung - Bericht', 20, 20);
+            
+            doc.setFontSize(10);
+            const range = document.getElementById('exportRange').value;
+            doc.text(`Zeitraum: ${range}`, 20, 30);
+            doc.text(`Erstellt am: ${new Date().toLocaleDateString('de-DE')}`, 20, 35);
+            
+            let y = 50;
+            doc.setFontSize(12);
+            
+            filtered.forEach((entry, index) => {
+                if (y > 270) {
+                    doc.addPage();
+                    y = 20;
+                }
+                
+                const project = projects.find(p => p.id === entry.projectId);
+                const projectName = project ? project.name : 'Unbekannt';
+                const hours = (entry.duration / 3600).toFixed(2);
+                const startTime = new Date(entry.startTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                const endTime = new Date(entry.endTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                
+                doc.text(`${entry.date} | ${projectName}`, 20, y);
+                doc.text(`${startTime} - ${endTime} (${hours}h)`, 20, y + 5);
+                doc.text(`Ort: ${entry.location === 'homeoffice' ? 'Homeoffice' : 'Büro'}`, 20, y + 10);
+                
+                y += 20;
+            });
+
+            const filename = `Zeiterfassung_${range}_${new Date().toISOString().split('T')[0]}.pdf`;
+            doc.save(filename);
+            
+            showMessage('✅ PDF-Export erfolgreich!', 'success');
+        }
+
+        function exportCSV(filtered) {
+            let csv = '\ufeff'; // BOM for UTF-8
+            csv += 'Datum,Projekt,Start,Ende,Dauer (h),Arbeitsort\n';
+            
+            filtered.forEach(e => {
+                const project = projects.find(p => p.id === e.projectId);
+                const projectName = project ? project.name : 'Unbekannt';
+                const hours = (e.duration / 3600).toFixed(2);
+                const location = e.location === 'homeoffice' ? 'Homeoffice' : 'Büro';
+                const startTime = new Date(e.startTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                const endTime = new Date(e.endTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                
+                csv += `"${e.date}","${projectName}","${startTime}","${endTime}",${hours},"${location}"\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const range = document.getElementById('exportRange').value;
+            a.href = url;
+            a.download = `Zeiterfassung_${range}_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            showMessage('✅ CSV-Export erfolgreich!', 'success');
+        }
+
+        function exportJSON() {
+            const data = {
+                entries,
+                projects,
+                exportDate: new Date().toISOString()
+            };
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], { 
+                type: 'application/json' 
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `zeiterfassung_backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            showMessage('✅ JSON-Backup erstellt!', 'success');
+        }
+
+        // ========================================
+        // NAVIGATION
+        // ========================================
+
+        function showPage(pageName) {
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.remove('active');
+            });
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            document.getElementById(pageName + 'Page').classList.add('active');
+            event.currentTarget.classList.add('active');
+
+            if (pageName === 'history') renderHistory();
+            if (pageName === 'dashboard') renderDashboard();
+            if (pageName === 'projects') renderProjectsList();
+        }
+
+        // ========================================
+        // DATA MANAGEMENT
+        // ========================================
+
+        function importData() {
+            document.getElementById('importFile').click();
+        }
+
+        function handleImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    
+                    if (confirm('Möchtest du die vorhandenen Daten ersetzen oder zusammenführen?\n\nOK = Ersetzen\nAbbrechen = Zusammenführen')) {
+                        entries = data.entries || [];
+                        projects = data.projects || projects;
+                    } else {
+                        entries = [...entries, ...(data.entries || [])];
+                    }
+                    
+                    saveData();
+                    populateProjectSelects();
+                    renderHistory();
+                    renderDashboard();
+                    renderProjectsList();
+                    showMessage('✅ Daten importiert!', 'success');
+                } catch (error) {
+                    showMessage('❌ Fehler beim Importieren!', 'warning');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function clearAllData() {
+            if (confirm('⚠️ ACHTUNG!\n\nAlle Daten werden unwiderruflich gelöscht!\n\nWirklich fortfahren?')) {
+                if (confirm('Bist du dir wirklich sicher? Diese Aktion kann nicht rückgängig gemacht werden!')) {
+                    entries = [];
+                    saveData();
+                    renderHistory();
+                    renderDashboard();
+                    showMessage('🗑️ Alle Daten gelöscht!', 'success');
+                }
+            }
+        }
+
+        // ========================================
+        // UI HELPERS
+        // ========================================
+
+        function showMessage(message, type) {
+            const existing = document.querySelector('.message-toast');
+            if (existing) existing.remove();
+
+            const toast = document.createElement('div');
+            toast.className = type === 'warning' ? 'warning' : 'success';
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 10000;
+                max-width: 90%;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            `;
+            toast.classList.add('message-toast');
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        function showModalMessage(message, type) {
+            const container = document.getElementById('modalMessage');
+            container.className = type === 'warning' ? 'warning' : 'success';
+            container.textContent = message;
+            container.style.display = 'block';
+
+            setTimeout(() => {
+                container.style.display = 'none';
+            }, 3000);
+        }
+
+        // ========================================
+        // INIT
+        // ========================================
+
+        window.addEventListener('load', init);
+
+        console.log('✅ Zeiterfassung Pro KOMPLETT geladen!');
+    </script>
+</body>
+</html>
