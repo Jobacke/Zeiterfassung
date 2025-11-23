@@ -1,0 +1,1499 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#667eea">
+    <link rel="manifest" href="./manifest.json">
+    <title>Zeiterfassung Pro</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+            padding-bottom: calc(80px + env(safe-area-inset-bottom));
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+
+        .timer-section {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+
+        .display {
+            font-size: 64px;
+            font-weight: bold;
+            text-align: center;
+            color: #667eea;
+            margin: 20px 0;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            min-width: 120px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn:active:not(:disabled) {
+            transform: scale(0.95);
+        }
+
+        .project-section, .entries-section {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+
+        .project-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 12px;
+            background: #f9fafb;
+        }
+
+        .entry-item {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 12px;
+            background: #f9fafb;
+            border-left: 4px solid #667eea;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 500px;
+            margin: 50px auto;
+        }
+
+        .input-group {
+            margin: 15px 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        .location-toggle {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .location-btn {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .location-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .sync-warning {
+            background: #fef3c7;
+            border: 2px solid #fbbf24;
+            border-radius: 12px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .conflict-modal {
+            background: #fee2e2;
+            border: 2px solid #ef4444;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 15px 0;
+        }
+
+        .warning-banner {
+            background: #fef3c7;
+            border: 2px solid #f59e0b;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 10px 0;
+            display: none;
+        }
+
+        .nav-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            padding: 10px;
+            padding-bottom: calc(10px + env(safe-area-inset-bottom));
+            display: flex;
+            justify-content: space-around;
+            box-shadow: 0 -4px 16px rgba(0,0,0,0.1);
+            z-index: 999;
+        }
+
+        .nav-btn {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            background: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .nav-btn.active {
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .badge-homeoffice {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .badge-office {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        @media (max-width: 640px) {
+            .display {
+                font-size: 48px;
+            }
+            
+            .btn {
+                min-width: 100px;
+                padding: 12px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Timer Page -->
+        <div id="timerPage" class="page active">
+            <div class="header">
+                <h1>⏱️ Zeiterfassung</h1>
+                <p>Professionelle Zeiterfassung mit Konfliktprüfung</p>
+            </div>
+
+            <div id="timerWarning" class="warning-banner"></div>
+
+            <div class="sync-warning">
+                <strong>📱 Synchronisation:</strong> Daten werden lokal gespeichert. Nutze Export/Import für Geräte-Synchronisation!
+                <button class="btn btn-primary" onclick="showSyncHelp()" style="margin-top: 10px; width: 100%;">
+                    Wie synchronisiere ich?
+                </button>
+            </div>
+
+            <div class="timer-section">
+                <div class="location-toggle">
+                    <div class="location-btn active" id="homeofficeBtn" onclick="setLocation('homeoffice')">
+                        🏠 Homeoffice
+                    </div>
+                    <div class="location-btn" id="officeBtn" onclick="setLocation('office')">
+                        🏢 Büro
+                    </div>
+                </div>
+
+                <div class="display" id="timerDisplay">00:00:00</div>
+                
+                <div class="controls">
+                    <button class="btn btn-success" id="startBtn" onclick="startTimer()">▶ Start</button>
+                    <button class="btn btn-danger" id="stopBtn" onclick="stopTimer()" style="display:none;">⏹ Stop</button>
+                    <button class="btn btn-secondary" onclick="resetTimer()">↺ Reset</button>
+                </div>
+
+                <div class="input-group" style="margin-top: 20px;">
+                    <label>Projekt auswählen:</label>
+                    <select id="projectSelect">
+                        <option value="">-- Projekt wählen --</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin: 20px 0;">
+                <button class="btn btn-primary" onclick="showManualEntry()" style="flex: 1;">
+                    ➕ Manueller Eintrag
+                </button>
+                <button class="btn btn-secondary" onclick="showExportImport()" style="flex: 1;">
+                    📤 Export/Import
+                </button>
+            </div>
+        </div>
+
+        <!-- Projects Page -->
+        <div id="projectsPage" class="page">
+            <div class="header">
+                <h1>📋 Projekte</h1>
+                <button class="btn btn-primary" onclick="showNewProject()">➕ Neues Projekt</button>
+            </div>
+            <div class="project-section" id="projectsList"></div>
+        </div>
+
+        <!-- Entries Page -->
+        <div id="entriesPage" class="page">
+            <div class="header">
+                <h1>📊 Zeiteinträge</h1>
+                <button class="btn btn-secondary" onclick="exportData()">📥 Exportieren</button>
+            </div>
+            <div class="entries-section" id="entriesList"></div>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="nav-bar">
+        <button class="nav-btn active" onclick="showPage('timer')">
+            <div style="font-size: 24px;">⏱️</div>
+            <div style="font-size: 12px;">Timer</div>
+        </button>
+        <button class="nav-btn" onclick="showPage('projects')">
+            <div style="font-size: 24px;">📋</div>
+            <div style="font-size: 12px;">Projekte</div>
+        </button>
+        <button class="nav-btn" onclick="showPage('entries')">
+            <div style="font-size: 24px;">📊</div>
+            <div style="font-size: 12px;">Einträge</div>
+        </button>
+    </div>
+
+    <!-- Manual Entry Modal -->
+    <div id="manualModal" class="modal">
+        <div class="modal-content">
+            <h2>➕ Manueller Zeiteintrag</h2>
+            
+            <div class="input-group">
+                <label>Projekt:</label>
+                <select id="manualProject" required></select>
+            </div>
+
+            <div class="input-group">
+                <label>Datum:</label>
+                <input type="date" id="manualDate" required>
+            </div>
+
+            <div class="input-group">
+                <label>Startzeit (HH:MM):</label>
+                <input type="time" id="manualStart" required>
+            </div>
+
+            <div class="input-group">
+                <label>Endzeit (HH:MM):</label>
+                <input type="time" id="manualEnd" required>
+            </div>
+
+            <div class="input-group">
+                <label>Arbeitsort:</label>
+                <div class="location-toggle">
+                    <div class="location-btn active" id="manualHomeoffice" onclick="setManualLocation('homeoffice')">
+                        🏠 Homeoffice
+                    </div>
+                    <div class="location-btn" id="manualOffice" onclick="setManualLocation('office')">
+                        🏢 Büro
+                    </div>
+                </div>
+            </div>
+
+            <div id="conflictWarning" class="conflict-modal" style="display:none;">
+                <h3>⚠️ Zeitkonflikt erkannt!</h3>
+                <p id="conflictMessage"></p>
+                <div style="margin-top: 15px;">
+                    <strong>Bestehende Einträge:</strong>
+                    <div id="conflictingEntries" style="margin-top: 10px;"></div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="btn btn-success" id="saveManualBtn" onclick="saveManualEntry()">💾 Speichern</button>
+                <button class="btn btn-secondary" onclick="closeModal('manualModal')">❌ Abbrechen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Conflict Resolution Modal -->
+    <div id="conflictModal" class="modal">
+        <div class="modal-content">
+            <h2>⚠️ Zeitkonflikt!</h2>
+            <p id="conflictDetailMessage"></p>
+            
+            <div class="conflict-modal">
+                <h3>Bestehende Einträge:</h3>
+                <div id="conflictDetailList"></div>
+            </div>
+
+            <h3 style="margin-top: 20px;">Was möchtest du tun?</h3>
+            
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
+                <button class="btn btn-danger" onclick="resolveConflict('delete')">
+                    🗑️ Alte Einträge löschen und neuen speichern
+                </button>
+                <button class="btn btn-secondary" onclick="resolveConflict('cancel')">
+                    ❌ Neuen Eintrag verwerfen
+                </button>
+                <button class="btn btn-primary" onclick="resolveConflict('adjust')">
+                    ⏰ Zeiten automatisch anpassen
+                </button>
+                <button class="btn" style="background: #f59e0b; color: white;" onclick="resolveConflict('force')">
+                    ⚠️ Trotzdem beide behalten (nicht empfohlen)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sync Help Modal -->
+    <div id="syncModal" class="modal">
+        <div class="modal-content">
+            <h2>📱 Geräte-Synchronisation</h2>
+            
+            <div style="background: #fef3c7; padding: 15px; border-radius: 12px; margin: 15px 0;">
+                <strong>ℹ️ Wichtig:</strong> localStorage synchronisiert NICHT automatisch zwischen Geräten!
+            </div>
+
+            <h3>Lösung: Export/Import</h3>
+            
+            <div style="margin: 20px 0;">
+                <h4>1️⃣ Am Mac (Safari):</h4>
+                <ol style="margin-left: 20px; line-height: 1.8;">
+                    <li>Klicke auf "Export/Import"</li>
+                    <li>Wähle "Alle Daten exportieren (JSON)"</li>
+                    <li>Speichere die Datei</li>
+                </ol>
+            </div>
+
+            <div style="margin: 20px 0;">
+                <h4>2️⃣ Datei übertragen:</h4>
+                <ul style="margin-left: 20px; line-height: 1.8;">
+                    <li><strong>AirDrop:</strong> Sende Datei an dein iPhone</li>
+                    <li><strong>iCloud:</strong> Speichere in iCloud Drive</li>
+                    <li><strong>E-Mail:</strong> Schicke dir selbst eine Mail</li>
+                </ul>
+            </div>
+
+            <div style="margin: 20px 0;">
+                <h4>3️⃣ Am iPhone (App):</h4>
+                <ol style="margin-left: 20px; line-height: 1.8;">
+                    <li>Öffne die App</li>
+                    <li>Klicke auf "Export/Import"</li>
+                    <li>Wähle "Daten importieren"</li>
+                    <li>Wähle die JSON-Datei</li>
+                    <li>✅ Fertig! Alle Daten sind synchronisiert</li>
+                </ol>
+            </div>
+
+            <button class="btn btn-primary" onclick="closeModal('syncModal')" style="width: 100%; margin-top: 20px;">
+                Verstanden
+            </button>
+        </div>
+    </div>
+
+    <!-- Export/Import Modal -->
+    <div id="exportModal" class="modal">
+        <div class="modal-content">
+            <h2>📤 Export / Import</h2>
+            
+            <div style="margin: 20px 0;">
+                <h3>Export</h3>
+                <button class="btn btn-primary" onclick="exportJSON()" style="width: 100%; margin: 5px 0;">
+                    📥 Alle Daten exportieren (JSON)
+                </button>
+                <button class="btn btn-secondary" onclick="exportCSV()" style="width: 100%; margin: 5px 0;">
+                    📊 Einträge als CSV
+                </button>
+            </div>
+
+            <div style="margin: 20px 0;">
+                <h3>Import</h3>
+                <input type="file" id="importFile" accept=".json" style="margin: 10px 0;">
+                <button class="btn btn-success" onclick="importData()" style="width: 100%;">
+                    📤 Daten importieren
+                </button>
+            </div>
+
+            <button class="btn btn-secondary" onclick="closeModal('exportModal')" style="width: 100%; margin-top: 20px;">
+                Schließen
+            </button>
+        </div>
+    </div>
+
+    <!-- New Project Modal -->
+    <div id="projectModal" class="modal">
+        <div class="modal-content">
+            <h2>📋 Neues Projekt</h2>
+            
+            <div class="input-group">
+                <label>Projektname:</label>
+                <input type="text" id="projectName" required maxlength="100">
+            </div>
+
+            <div class="input-group">
+                <label>Farbe:</label>
+                <input type="color" id="projectColor" value="#667eea">
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="btn btn-success" onclick="saveProject()">💾 Speichern</button>
+                <button class="btn btn-secondary" onclick="closeModal('projectModal')">❌ Abbrechen</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let timerInterval = null;
+        let startTime = null;
+        let elapsedTime = 0;
+        let currentLocation = 'homeoffice';
+        let manualLocation = 'homeoffice';
+        let projects = [];
+        let entries = [];
+        let pendingEntry = null;
+        let isProcessing = false;  // Prevent race conditions
+
+        // Constants
+        const MAX_DURATION_HOURS = 24;
+        const MIN_DURATION_SECONDS = 60; // 1 minute minimum
+
+        // Load data with error handling
+        function loadData() {
+            try {
+                const savedProjects = localStorage.getItem('projects');
+                const savedEntries = localStorage.getItem('entries');
+                const savedTimerState = localStorage.getItem('timerState');
+                
+                if (savedProjects) {
+                    projects = JSON.parse(savedProjects);
+                    // Validate projects
+                    projects = projects.filter(p => p && p.id && p.name);
+                }
+                
+                if (savedEntries) {
+                    entries = JSON.parse(savedEntries);
+                    // Validate entries
+                    entries = entries.filter(e => 
+                        e && e.id && e.projectId && e.startTime && e.endTime && e.date
+                    );
+                }
+                
+                // Restore timer state if exists
+                if (savedTimerState) {
+                    const timerState = JSON.parse(savedTimerState);
+                    if (timerState.isRunning && timerState.startTime) {
+                        restoreTimer(timerState);
+                    }
+                }
+                
+                updateProjectSelects();
+                renderProjects();
+                renderEntries();
+                
+                console.log('✓ Daten geladen:', { 
+                    projects: projects.length, 
+                    entries: entries.length 
+                });
+            } catch (error) {
+                console.error('Fehler beim Laden der Daten:', error);
+                showWarning('Fehler beim Laden der Daten. Bitte Seite neu laden.');
+            }
+        }
+
+        // Save data with error handling
+        function saveData() {
+            try {
+                localStorage.setItem('projects', JSON.stringify(projects));
+                localStorage.setItem('entries', JSON.stringify(entries));
+                console.log('✓ Daten gespeichert');
+            } catch (error) {
+                console.error('Fehler beim Speichern:', error);
+                if (error.name === 'QuotaExceededError') {
+                    showWarning('⚠️ Speicher voll! Bitte exportiere deine Daten und lösche alte Einträge.');
+                } else {
+                    showWarning('Fehler beim Speichern der Daten!');
+                }
+            }
+        }
+
+        // Save timer state
+        function saveTimerState() {
+            try {
+                const timerState = {
+                    isRunning: timerInterval !== null,
+                    startTime: startTime,
+                    elapsedTime: elapsedTime,
+                    projectId: document.getElementById('projectSelect')?.value,
+                    location: currentLocation
+                };
+                localStorage.setItem('timerState', JSON.stringify(timerState));
+            } catch (error) {
+                console.error('Fehler beim Speichern des Timer-Status:', error);
+            }
+        }
+
+        // Restore timer
+        function restoreTimer(timerState) {
+            if (!timerState.projectId) return;
+            
+            const elapsed = Date.now() - timerState.startTime;
+            // Max 24 hours
+            if (elapsed > MAX_DURATION_HOURS * 3600 * 1000) {
+                clearTimerState();
+                showWarning('⚠️ Timer war länger als 24h aktiv und wurde zurückgesetzt.');
+                return;
+            }
+            
+            startTime = timerState.startTime;
+            elapsedTime = elapsed;
+            currentLocation = timerState.location || 'homeoffice';
+            
+            const select = document.getElementById('projectSelect');
+            if (select) {
+                select.value = timerState.projectId;
+            }
+            
+            setLocation(currentLocation);
+            timerInterval = setInterval(updateTimer, 100);
+            
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('stopBtn').style.display = 'inline-block';
+            
+            updateTimer();
+            showWarning('⏱️ Laufender Timer wiederhergestellt');
+        }
+
+        // Clear timer state
+        function clearTimerState() {
+            try {
+                localStorage.removeItem('timerState');
+            } catch (error) {
+                console.error('Fehler beim Löschen des Timer-Status:', error);
+            }
+        }
+
+        // Show warning banner
+        function showWarning(message, duration = 5000) {
+            const banner = document.getElementById('timerWarning');
+            banner.textContent = message;
+            banner.style.display = 'block';
+            
+            if (duration > 0) {
+                setTimeout(() => {
+                    banner.style.display = 'none';
+                }, duration);
+            }
+        }
+
+        // Timer functions with improved validation
+        function startTimer() {
+            const select = document.getElementById('projectSelect');
+            if (!select.value) {
+                alert('⚠️ Bitte wähle erst ein Projekt aus!');
+                return;
+            }
+            
+            if (isProcessing) {
+                console.log('Verarbeitung läuft bereits...');
+                return;
+            }
+            
+            startTime = Date.now();
+            elapsedTime = 0;
+            timerInterval = setInterval(updateTimer, 100);
+            
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('stopBtn').style.display = 'inline-block';
+            
+            saveTimerState();
+            console.log('✓ Timer gestartet');
+        }
+
+        function stopTimer() {
+            if (isProcessing) {
+                showWarning('Bitte warten, Verarbeitung läuft...');
+                return;
+            }
+            
+            isProcessing = true;
+            console.log('=== STOP TIMER ===');
+            
+            try {
+                clearInterval(timerInterval);
+                timerInterval = null;
+                
+                const projectId = document.getElementById('projectSelect').value;
+                if (!projectId) {
+                    alert('Fehler: Kein Projekt ausgewählt!');
+                    resetTimer();
+                    return;
+                }
+                
+                const endTime = Date.now();
+                const duration = Math.floor((endTime - startTime) / 1000);
+                
+                // Validate duration
+                if (duration < MIN_DURATION_SECONDS) {
+                    if (confirm(`⚠️ Eintrag ist nur ${duration} Sekunden lang. Trotzdem speichern?`)) {
+                        // Continue
+                    } else {
+                        resetTimer();
+                        return;
+                    }
+                }
+                
+                if (duration > MAX_DURATION_HOURS * 3600) {
+                    alert(`⚠️ Eintrag ist länger als ${MAX_DURATION_HOURS} Stunden! Bitte erstelle mehrere Einträge.`);
+                    resetTimer();
+                    return;
+                }
+                
+                // Create date string in YYYY-MM-DD format
+                const dateStr = new Date(startTime).toISOString().split('T')[0];
+                
+                const newEntry = {
+                    id: Date.now(),
+                    projectId: parseInt(projectId),
+                    startTime: startTime,
+                    endTime: endTime,
+                    duration: duration,
+                    location: currentLocation,
+                    date: dateStr
+                };
+                
+                console.log('Prüfe neuen Timer-Eintrag auf Konflikte...');
+                const conflicts = checkTimeConflicts(newEntry);
+                
+                if (conflicts.length > 0) {
+                    console.log(`⚠️ ${conflicts.length} Konflikt(e) gefunden - zeige Dialog`);
+                    pendingEntry = newEntry;
+                    showConflictDialog(conflicts, newEntry);
+                    return;
+                }
+                
+                console.log('✓ Keine Konflikte - speichere Eintrag');
+                saveEntry(newEntry);
+            } finally {
+                isProcessing = false;
+            }
+        }
+
+        function resetTimer() {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            startTime = null;
+            elapsedTime = 0;
+            
+            document.getElementById('timerDisplay').textContent = '00:00:00';
+            document.getElementById('startBtn').style.display = 'inline-block';
+            document.getElementById('stopBtn').style.display = 'none';
+            
+            clearTimerState();
+        }
+
+        function updateTimer() {
+            if (!startTime) return;
+            
+            elapsedTime = Date.now() - startTime;
+            const seconds = Math.floor(elapsedTime / 1000);
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            
+            // Warning if timer runs too long
+            if (hours >= MAX_DURATION_HOURS) {
+                showWarning(`⚠️ Timer läuft seit ${hours} Stunden! Bitte stoppen und neuen Eintrag starten.`, 0);
+            }
+            
+            document.getElementById('timerDisplay').textContent = 
+                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            
+            // Update timer state periodically
+            if (seconds % 30 === 0) {
+                saveTimerState();
+            }
+        }
+
+        // Conflict detection - ROBUST VERSION
+        function checkTimeConflicts(newEntry) {
+            console.log('=== KONFLIKTPRÜFUNG START ===');
+            console.log('Neuer Eintrag:', {
+                date: newEntry.date,
+                start: new Date(newEntry.startTime).toLocaleString(),
+                end: new Date(newEntry.endTime).toLocaleString()
+            });
+            
+            // Validation
+            if (!newEntry.date || !newEntry.startTime || !newEntry.endTime) {
+                console.error('FEHLER: Unvollständige Eintragsdaten!', newEntry);
+                return [];
+            }
+            
+            if (newEntry.endTime <= newEntry.startTime) {
+                console.error('FEHLER: Endzeit vor oder gleich Startzeit!');
+                return [];
+            }
+            
+            console.log(`Prüfe gegen ${entries.length} bestehende(n) Eintrag/Einträge`);
+            
+            const conflicts = entries.filter((entry, index) => {
+                console.log(`  [${index + 1}/${entries.length}] Prüfe Eintrag #${entry.id}`);
+                
+                // Normalize dates
+                const entryDate = entry.date ? entry.date.split('T')[0] : '';
+                const newDate = newEntry.date ? newEntry.date.split('T')[0] : '';
+                
+                console.log(`    Datumvergleich: "${entryDate}" === "${newDate}" = ${entryDate === newDate}`);
+                
+                if (entryDate !== newDate) {
+                    console.log('    ✓ Verschiedene Daten - kein Konflikt');
+                    return false;
+                }
+                
+                // Check for overlap
+                const entryStart = parseInt(entry.startTime);
+                const entryEnd = parseInt(entry.endTime);
+                const newStart = parseInt(newEntry.startTime);
+                const newEnd = parseInt(newEntry.endTime);
+                
+                // Overlap: (A.start < B.end) AND (A.end > B.start)
+                const hasOverlap = (newStart < entryEnd) && (newEnd > entryStart);
+                
+                console.log(`    Überlappung: ${hasOverlap}`);
+                
+                if (hasOverlap) {
+                    console.log(`    ⚠️ KONFLIKT ERKANNT!`);
+                }
+                
+                return hasOverlap;
+            });
+            
+            console.log(`=== ERGEBNIS: ${conflicts.length} Konflikt(e) gefunden ===`);
+            return conflicts;
+        }
+
+        function showConflictDialog(conflicts, newEntry) {
+            const modal = document.getElementById('conflictModal');
+            const detailMessage = document.getElementById('conflictDetailMessage');
+            const detailList = document.getElementById('conflictDetailList');
+            
+            const project = projects.find(p => p.id === newEntry.projectId);
+            const newStartTime = new Date(newEntry.startTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            const newEndTime = new Date(newEntry.endTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            
+            detailMessage.innerHTML = `
+                <strong>Neuer Eintrag:</strong><br>
+                ${project?.name || 'Unbekanntes Projekt'} von ${newStartTime} bis ${newEndTime}<br>
+                <strong>⚠️ Überschneidet sich mit ${conflicts.length} Eintrag/Einträgen!</strong>
+            `;
+            
+            detailList.innerHTML = conflicts.map(entry => {
+                const proj = projects.find(p => p.id === entry.projectId);
+                const startTime = new Date(entry.startTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                const endTime = new Date(entry.endTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                return `
+                    <div style="padding: 10px; margin: 5px 0; background: white; border-radius: 8px; border-left: 4px solid ${proj?.color || '#666'}">
+                        <strong>${proj?.name || 'Unbekanntes Projekt'}</strong><br>
+                        ${startTime} - ${endTime}
+                        <span class="badge badge-${entry.location}">${entry.location === 'homeoffice' ? '🏠 Homeoffice' : '🏢 Büro'}</span>
+                    </div>
+                `;
+            }).join('');
+            
+            modal.style.display = 'block';
+        }
+
+        function resolveConflict(action) {
+            if (isProcessing) return;
+            isProcessing = true;
+            
+            console.log(`=== RESOLVE CONFLICT: ${action} ===`);
+            
+            try {
+                if (!pendingEntry) {
+                    console.error('FEHLER: Kein pending entry vorhanden!');
+                    closeModal('conflictModal');
+                    return;
+                }
+                
+                const conflicts = checkTimeConflicts(pendingEntry);
+                console.log(`Löse Konflikt mit ${conflicts.length} Einträgen`);
+                
+                switch(action) {
+                    case 'delete':
+                        console.log('Aktion: Alte Einträge löschen');
+                        const idsToDelete = conflicts.map(c => c.id);
+                        entries = entries.filter(e => !idsToDelete.includes(e.id));
+                        saveEntry(pendingEntry);
+                        break;
+                        
+                    case 'cancel':
+                        console.log('Aktion: Neuen Eintrag verwerfen');
+                        resetTimer();
+                        break;
+                        
+                    case 'adjust':
+                        console.log('Aktion: Zeiten automatisch anpassen');
+                        conflicts.forEach(conflict => {
+                            if (conflict.startTime < pendingEntry.startTime) {
+                                console.log(`Passe Eintrag #${conflict.id} an`);
+                                conflict.endTime = pendingEntry.startTime;
+                                conflict.duration = Math.floor((conflict.endTime - conflict.startTime) / 1000);
+                            }
+                        });
+                        saveData();
+                        saveEntry(pendingEntry);
+                        break;
+                        
+                    case 'force':
+                        console.log('Aktion: Force save');
+                        if (confirm('⚠️ Wirklich überlappende Einträge behalten? Dies kann zu falschen Berechnungen führen!')) {
+                            saveEntry(pendingEntry);
+                        } else {
+                            return;
+                        }
+                        break;
+                }
+                
+                pendingEntry = null;
+                closeModal('conflictModal');
+            } finally {
+                isProcessing = false;
+            }
+        }
+
+        function saveEntry(entry) {
+            console.log('saveEntry() aufgerufen');
+            
+            if (!entry || !entry.projectId || !entry.startTime || !entry.endTime) {
+                console.error('FEHLER: Unvollständiger Eintrag!', entry);
+                alert('Fehler beim Speichern des Eintrags!');
+                return;
+            }
+            
+            // Validate project exists
+            const projectExists = projects.some(p => p.id === entry.projectId);
+            if (!projectExists) {
+                alert('⚠️ Projekt existiert nicht mehr! Bitte wähle ein anderes.');
+                return;
+            }
+            
+            entries.push(entry);
+            saveData();
+            resetTimer();
+            renderEntries();
+            
+            console.log('✓ Eintrag gespeichert, Anzahl:', entries.length);
+            alert('✅ Zeiteintrag gespeichert!');
+        }
+
+        // Manual entry with comprehensive validation
+        function showManualEntry() {
+            const today = new Date();
+            document.getElementById('manualDate').valueAsDate = today;
+            document.getElementById('manualModal').style.display = 'block';
+            updateManualProjectSelect();
+            
+            // Reset warning
+            const warning = document.getElementById('conflictWarning');
+            if (warning) warning.style.display = 'none';
+        }
+
+        function updateManualProjectSelect() {
+            const select = document.getElementById('manualProject');
+            select.innerHTML = '<option value="">-- Projekt wählen --</option>' +
+                projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+        }
+
+        function saveManualEntry() {
+            if (isProcessing) {
+                showWarning('Bitte warten, Verarbeitung läuft...');
+                return;
+            }
+            
+            isProcessing = true;
+            console.log('=== SAVE MANUAL ENTRY ===');
+            
+            try {
+                const projectId = document.getElementById('manualProject').value;
+                const date = document.getElementById('manualDate').value;
+                const startTimeStr = document.getElementById('manualStart').value;
+                const endTimeStr = document.getElementById('manualEnd').value;
+                
+                // Validation
+                if (!projectId || !date || !startTimeStr || !endTimeStr) {
+                    alert('⚠️ Bitte fülle alle Felder aus!');
+                    return;
+                }
+                
+                // Validate project exists
+                const projectExists = projects.some(p => p.id === parseInt(projectId));
+                if (!projectExists) {
+                    alert('⚠️ Projekt existiert nicht! Bitte wähle ein gültiges Projekt.');
+                    return;
+                }
+                
+                // Parse times - add seconds
+                const startTime = new Date(`${date}T${startTimeStr}:00`).getTime();
+                const endTime = new Date(`${date}T${endTimeStr}:00`).getTime();
+                
+                if (isNaN(startTime) || isNaN(endTime)) {
+                    alert('❌ Fehler beim Verarbeiten der Zeitangaben!');
+                    console.error('Invalid timestamps:', { startTime, endTime });
+                    return;
+                }
+                
+                if (endTime <= startTime) {
+                    alert('⚠️ Endzeit muss nach Startzeit liegen!');
+                    return;
+                }
+                
+                const duration = Math.floor((endTime - startTime) / 1000);
+                
+                // Validate duration
+                if (duration < MIN_DURATION_SECONDS) {
+                    alert(`⚠️ Eintrag muss mindestens ${MIN_DURATION_SECONDS} Sekunden lang sein!`);
+                    return;
+                }
+                
+                if (duration > MAX_DURATION_HOURS * 3600) {
+                    alert(`⚠️ Eintrag darf maximal ${MAX_DURATION_HOURS} Stunden lang sein!`);
+                    return;
+                }
+                
+                const newEntry = {
+                    id: Date.now(),
+                    projectId: parseInt(projectId),
+                    startTime: startTime,
+                    endTime: endTime,
+                    duration: duration,
+                    location: manualLocation,
+                    date: date
+                };
+                
+                console.log('Prüfe manuellen Eintrag auf Konflikte...');
+                const conflicts = checkTimeConflicts(newEntry);
+                
+                if (conflicts.length > 0) {
+                    console.log(`⚠️ KONFLIKT: ${conflicts.length} Eintrag/Einträge überlappen!`);
+                    
+                    const conflictWarning = document.getElementById('conflictWarning');
+                    const conflictMessage = document.getElementById('conflictMessage');
+                    const conflictingEntries = document.getElementById('conflictingEntries');
+                    
+                    if (conflictWarning && conflictMessage && conflictingEntries) {
+                        conflictMessage.textContent = `Es gibt ${conflicts.length} überlappende(n) Eintrag/Einträge!`;
+                        
+                        conflictingEntries.innerHTML = conflicts.map(entry => {
+                            const proj = projects.find(p => p.id === entry.projectId);
+                            const start = new Date(entry.startTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                            const end = new Date(entry.endTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                            return `
+                                <div style="padding: 8px; margin: 5px 0; background: white; border-radius: 8px;">
+                                    <strong>${proj?.name || 'Unbekannt'}</strong>: ${start} - ${end}
+                                </div>
+                            `;
+                        }).join('');
+                        
+                        conflictWarning.style.display = 'block';
+                    }
+                    
+                    pendingEntry = newEntry;
+                    closeModal('manualModal');
+                    showConflictDialog(conflicts, newEntry);
+                    return;
+                }
+                
+                console.log('✓ Keine Konflikte - speichere Eintrag');
+                entries.push(newEntry);
+                saveData();
+                closeModal('manualModal');
+                renderEntries();
+                alert('✅ Zeiteintrag gespeichert!');
+            } finally {
+                isProcessing = false;
+            }
+        }
+
+        // Location functions
+        function setLocation(location) {
+            currentLocation = location;
+            document.getElementById('homeofficeBtn').classList.toggle('active', location === 'homeoffice');
+            document.getElementById('officeBtn').classList.toggle('active', location === 'office');
+        }
+
+        function setManualLocation(location) {
+            manualLocation = location;
+            document.getElementById('manualHomeoffice').classList.toggle('active', location === 'homeoffice');
+            document.getElementById('manualOffice').classList.toggle('active', location === 'office');
+        }
+
+        // Project functions
+        function showNewProject() {
+            document.getElementById('projectName').value = '';
+            document.getElementById('projectColor').value = '#667eea';
+            document.getElementById('projectModal').style.display = 'block';
+        }
+
+        function saveProject() {
+            const name = document.getElementById('projectName').value.trim();
+            const color = document.getElementById('projectColor').value;
+            
+            if (!name) {
+                alert('⚠️ Bitte gib einen Projektnamen ein!');
+                return;
+            }
+            
+            if (name.length > 100) {
+                alert('⚠️ Projektname ist zu lang (max. 100 Zeichen)!');
+                return;
+            }
+            
+            // Check for duplicate names
+            if (projects.some(p => p.name.toLowerCase() === name.toLowerCase())) {
+                if (!confirm(`⚠️ Ein Projekt mit dem Namen "${name}" existiert bereits. Trotzdem erstellen?`)) {
+                    return;
+                }
+            }
+            
+            projects.push({
+                id: Date.now(),
+                name: name,
+                color: color
+            });
+            
+            saveData();
+            updateProjectSelects();
+            renderProjects();
+            closeModal('projectModal');
+            
+            showWarning(`✅ Projekt "${name}" erstellt`);
+        }
+
+        function updateProjectSelects() {
+            const selects = [document.getElementById('projectSelect')];
+            selects.forEach(select => {
+                if (select) {
+                    const currentValue = select.value;
+                    select.innerHTML = '<option value="">-- Projekt wählen --</option>' +
+                        projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+                    select.value = currentValue;
+                }
+            });
+        }
+
+        function renderProjects() {
+            const list = document.getElementById('projectsList');
+            if (!list) return;
+            
+            if (projects.length === 0) {
+                list.innerHTML = '<p style="text-align: center; color: #6b7280;">Noch keine Projekte vorhanden. Erstelle dein erstes Projekt!</p>';
+                return;
+            }
+            
+            list.innerHTML = projects.map(project => {
+                const projectEntries = entries.filter(e => e.projectId === project.id);
+                const totalSeconds = projectEntries.reduce((sum, e) => sum + (e.duration || 0), 0);
+                const hours = Math.floor(totalSeconds / 3600);
+                const minutes = Math.floor((totalSeconds % 3600) / 60);
+                
+                return `
+                    <div class="project-item" style="border-left: 4px solid ${project.color}">
+                        <div>
+                            <strong>${project.name}</strong><br>
+                            <small>${hours}h ${minutes}m • ${projectEntries.length} Einträge</small>
+                        </div>
+                        <button class="btn btn-danger" onclick="deleteProject(${project.id})">🗑️</button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function deleteProject(id) {
+            const project = projects.find(p => p.id === id);
+            if (!project) return;
+            
+            const projectEntries = entries.filter(e => e.projectId === id);
+            
+            if (projectEntries.length > 0) {
+                if (!confirm(`⚠️ Projekt "${project.name}" hat ${projectEntries.length} Zeiteintrag/Einträge. Wirklich löschen? Die Zeiteinträge bleiben erhalten.`)) {
+                    return;
+                }
+            } else {
+                if (!confirm(`Projekt "${project.name}" wirklich löschen?`)) {
+                    return;
+                }
+            }
+            
+            projects = projects.filter(p => p.id !== id);
+            saveData();
+            updateProjectSelects();
+            renderProjects();
+            
+            showWarning(`✓ Projekt "${project.name}" gelöscht`);
+        }
+
+        // Entry functions
+        function renderEntries() {
+            const list = document.getElementById('entriesList');
+            if (!list) return;
+            
+            if (entries.length === 0) {
+                list.innerHTML = '<p style="text-align: center; color: #6b7280;">Noch keine Zeiteinträge vorhanden. Starte den Timer oder erstelle einen manuellen Eintrag!</p>';
+                return;
+            }
+            
+            const sortedEntries = [...entries].sort((a, b) => b.startTime - a.startTime);
+            
+            list.innerHTML = sortedEntries.map(entry => {
+                const project = projects.find(p => p.id === entry.projectId);
+                const projectName = project ? project.name : '⚠️ Projekt gelöscht';
+                const projectColor = project ? project.color : '#6b7280';
+                
+                const date = new Date(entry.startTime).toLocaleDateString('de-DE');
+                const startTime = new Date(entry.startTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                const endTime = new Date(entry.endTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                const hours = Math.floor(entry.duration / 3600);
+                const minutes = Math.floor((entry.duration % 3600) / 60);
+                
+                return `
+                    <div class="entry-item" style="border-left-color: ${projectColor}">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <strong>${projectName}</strong>
+                                <span class="badge badge-${entry.location}">
+                                    ${entry.location === 'homeoffice' ? '🏠 Homeoffice' : '🏢 Büro'}
+                                </span><br>
+                                <small>📅 ${date} • ⏰ ${startTime} - ${endTime}</small><br>
+                                <strong>⏱️ ${hours}h ${minutes}m</strong>
+                            </div>
+                            <button class="btn btn-danger" onclick="deleteEntry(${entry.id})" style="padding: 8px 12px;">🗑️</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function deleteEntry(id) {
+            const entry = entries.find(e => e.id === id);
+            if (!entry) return;
+            
+            const project = projects.find(p => p.id === entry.projectId);
+            const projectName = project ? project.name : 'Unbekanntes Projekt';
+            
+            if (!confirm(`Eintrag "${projectName}" wirklich löschen?`)) return;
+            
+            entries = entries.filter(e => e.id !== id);
+            saveData();
+            renderEntries();
+            
+            showWarning('✓ Eintrag gelöscht');
+        }
+
+        // Export/Import with validation
+        function showExportImport() {
+            document.getElementById('exportModal').style.display = 'block';
+        }
+
+        function exportJSON() {
+            try {
+                const data = {
+                    version: '2.1',
+                    exportDate: new Date().toISOString(),
+                    projects: projects,
+                    entries: entries
+                };
+                
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `zeiterfassung_${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                showWarning('✅ Export erfolgreich!');
+            } catch (error) {
+                console.error('Export-Fehler:', error);
+                alert('❌ Fehler beim Export!');
+            }
+        }
+
+        function exportCSV() {
+            try {
+                let csv = 'Datum,Projekt,Start,Ende,Dauer (Stunden),Arbeitsort\n';
+                
+                entries.forEach(entry => {
+                    const project = projects.find(p => p.id === entry.projectId);
+                    const projectName = project ? project.name : 'Unbekannt';
+                    const date = new Date(entry.startTime).toLocaleDateString('de-DE');
+                    const startTime = new Date(entry.startTime).toLocaleTimeString('de-DE');
+                    const endTime = new Date(entry.endTime).toLocaleTimeString('de-DE');
+                    const hours = (entry.duration / 3600).toFixed(2);
+                    const location = entry.location === 'homeoffice' ? 'Homeoffice' : 'Büro';
+                    
+                    csv += `"${date}","${projectName}","${startTime}","${endTime}",${hours},"${location}"\n`;
+                });
+                
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `zeiterfassung_${new Date().toISOString().split('T')[0]}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                showWarning('✅ CSV-Export erfolgreich!');
+            } catch (error) {
+                console.error('CSV-Export-Fehler:', error);
+                alert('❌ Fehler beim CSV-Export!');
+            }
+        }
+
+        function importData() {
+            const file = document.getElementById('importFile').files[0];
+            if (!file) {
+                alert('⚠️ Bitte wähle eine Datei aus!');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    
+                    // Validate structure
+                    if (!data.projects || !data.entries) {
+                        alert('❌ Ungültiges Dateiformat!');
+                        return;
+                    }
+                    
+                    // Validate data
+                    const validProjects = data.projects.filter(p => p && p.id && p.name);
+                    const validEntries = data.entries.filter(e => 
+                        e && e.id && e.projectId && e.startTime && e.endTime && e.date
+                    );
+                    
+                    if (validProjects.length !== data.projects.length || 
+                        validEntries.length !== data.entries.length) {
+                        console.warn('Einige Daten waren ungültig und wurden übersprungen');
+                    }
+                    
+                    const action = confirm('⚠️ Möchtest du die importierten Daten mit bestehenden zusammenführen?\n\nOK = Zusammenführen\nAbbrechen = Ersetzen');
+                    
+                    if (action) {
+                        // Merge - avoid duplicates
+                        const existingProjectIds = new Set(projects.map(p => p.id));
+                        const existingEntryIds = new Set(entries.map(e => e.id));
+                        
+                        const newProjects = validProjects.filter(p => !existingProjectIds.has(p.id));
+                        const newEntries = validEntries.filter(e => !existingEntryIds.has(e.id));
+                        
+                        projects = [...projects, ...newProjects];
+                        entries = [...entries, ...newEntries];
+                        
+                        showWarning(`✅ ${newProjects.length} Projekte und ${newEntries.length} Einträge hinzugefügt`);
+                    } else {
+                        // Replace
+                        projects = validProjects;
+                        entries = validEntries;
+                        
+                        showWarning(`✅ Daten ersetzt: ${projects.length} Projekte, ${entries.length} Einträge`);
+                    }
+                    
+                    saveData();
+                    updateProjectSelects();
+                    renderProjects();
+                    renderEntries();
+                    closeModal('exportModal');
+                } catch (error) {
+                    console.error('Import-Fehler:', error);
+                    alert('❌ Fehler beim Importieren: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Sync Help
+        function showSyncHelp() {
+            document.getElementById('syncModal').style.display = 'block';
+        }
+
+        // Navigation
+        function showPage(pageName) {
+            // Warn if timer is running
+            if (timerInterval && pageName !== 'timer') {
+                showWarning('⏱️ Timer läuft im Hintergrund weiter');
+            }
+            
+            document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            
+            document.getElementById(pageName + 'Page').classList.add('active');
+            event.target.closest('.nav-btn').classList.add('active');
+            
+            if (pageName === 'projects') renderProjects();
+            if (pageName === 'entries') renderEntries();
+        }
+
+        // Modal functions
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+            
+            // Clean up pending entry if modal is closed
+            if (modalId === 'conflictModal') {
+                if (pendingEntry) {
+                    console.log('Konflikt-Dialog geschlossen ohne Aktion - pendingEntry zurückgesetzt');
+                    pendingEntry = null;
+                    isProcessing = false;
+                }
+            }
+            
+            if (modalId === 'manualModal') {
+                const warning = document.getElementById('conflictWarning');
+                if (warning) warning.style.display = 'none';
+            }
+        }
+
+        // Close modal on background click
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                const modalId = event.target.id;
+                closeModal(modalId);
+            }
+        }
+
+        // Warn before leaving if timer is running
+        window.addEventListener('beforeunload', function(e) {
+            if (timerInterval) {
+                e.preventDefault();
+                e.returnValue = 'Timer läuft noch! Wirklich verlassen?';
+                return e.returnValue;
+            }
+        });
+
+        // Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./service-worker.js')
+                .then(registration => console.log('✅ Service Worker registriert'))
+                .catch(error => console.log('❌ Service Worker Fehler:', error));
+        }
+
+        // Initialize
+        console.log('=== APP START ===');
+        loadData();
+        console.log('✓ App initialisiert');
+    </script>
+</body>
+</html>
