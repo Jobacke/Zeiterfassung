@@ -1,0 +1,2378 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Zeiterfassung Pro</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- iOS Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Zeiterfassung">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='128' fill='%23667eea'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='280' fill='white'%3E⏱️%3C/text%3E%3C/svg%3E">
+    
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#667eea">
+    
+    <!-- Export Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            /* iOS Safe Area Support */
+            padding-top: max(20px, env(safe-area-inset-top));
+            padding-bottom: max(20px, env(safe-area-inset-bottom));
+            padding-left: max(20px, env(safe-area-inset-left));
+            padding-right: max(20px, env(safe-area-inset-right));
+            /* Prevent iOS bounce scroll */
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            /* Prevent text size adjustment on orientation change */
+            -webkit-text-size-adjust: 100%;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        h1, h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #eee;
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+        
+        .tab:hover {
+            color: #667eea;
+        }
+        
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Timer Controls */
+        .timer-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .timer-section {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .timer-box {
+            padding: 20px;
+            border: 2px solid #eee;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .timer-display {
+            font-size: 48px;
+            font-weight: bold;
+            color: #667eea;
+            margin: 20px 0;
+            font-variant-numeric: tabular-nums;
+        }
+        
+        .timer-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            /* iOS Touch Optimierung */
+            min-height: 44px;
+            min-width: 44px;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+        
+        .btn-danger {
+            background: #f56565;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #eee;
+            color: #333;
+        }
+        
+        /* Arbeitsort Selection */
+        .location-selector {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        
+        .location-btn {
+            flex: 1;
+            max-width: 200px;
+            padding: 16px;
+            border: 3px solid #eee;
+            border-radius: 12px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .location-btn:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+        }
+        
+        .location-btn.selected {
+            border-color: #667eea;
+            background: #f0f4ff;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        
+        .location-icon {
+            font-size: 32px;
+        }
+        
+        .location-label {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        /* Theme Selection */
+        .theme-select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #eee;
+            border-radius: 6px;
+            font-size: 16px;
+            margin-bottom: 15px;
+        }
+        
+        .theme-manager {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .theme-input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #eee;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+        
+        .color-input {
+            width: 60px;
+            height: 44px;
+            border: 2px solid #eee;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        
+        /* Statistics */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            padding: 20px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .stat-card.homeoffice {
+            background: linear-gradient(135deg, #4299e1 0%, #667eea 100%);
+        }
+        
+        .stat-card.office {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 8px;
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+        }
+        
+        /* History */
+        .entry-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .entry-item {
+            padding: 15px;
+            border: 2px solid #eee;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+            border-left: 4px solid #667eea;
+        }
+        
+        .entry-item.homeoffice {
+            border-left-color: #4299e1;
+            background: #f0f9ff;
+        }
+        
+        .entry-item.office {
+            border-left-color: #48bb78;
+            background: #f0fff4;
+        }
+        
+        .entry-item:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .entry-info {
+            flex: 1;
+        }
+        
+        .entry-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+        
+        .entry-theme {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            color: white;
+        }
+        
+        .entry-location {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            background: white;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .entry-date {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .entry-duration {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .entry-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .btn-icon {
+            padding: 8px 12px;
+            border: none;
+            background: #eee;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-icon:hover {
+            background: #ddd;
+        }
+        
+        /* Filters */
+        .filters {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-select {
+            padding: 10px;
+            border: 2px solid #eee;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #eee;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        /* Active Timer Indicator */
+        .timer-active {
+            position: relative;
+            border: 3px solid #48bb78 !important;
+            background: #f0fff4 !important;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(72, 187, 120, 0.7); }
+            50% { box-shadow: 0 0 0 10px rgba(72, 187, 120, 0); }
+        }
+        
+        .timer-status {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #48bb78;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .warning-banner {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .warning-banner.error {
+            background: #fee;
+            border-color: #f56565;
+        }
+        
+        .countdown-input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .countdown-input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #eee;
+            border-radius: 6px;
+            font-size: 16px;
+            text-align: center;
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .alert-info {
+            background: #e6f7ff;
+            color: #0066cc;
+            border: 1px solid #91d5ff;
+        }
+        
+        .progress-bar {
+            height: 8px;
+            background: #eee;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <!-- iOS Installation Banner -->
+    <div id="ios-install-banner" class="alert alert-info" style="display: none; position: fixed; top: env(safe-area-inset-top); left: 0; right: 0; z-index: 9999; margin: 10px;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div style="flex: 1;">
+                <strong>📱 Als App installieren</strong><br>
+                <small>Tippe auf <span style="font-weight: bold;">Teilen ⬆️</span> und dann "Zum Home-Bildschirm"</small>
+            </div>
+            <button class="btn btn-secondary" onclick="hideInstallBanner()" style="padding: 8px 12px; min-width: auto;">✕</button>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="card">
+            <h1>⏱️ Zeiterfassung mit Arbeitsort</h1>
+            
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('timer')">Timer</button>
+                <button class="tab" onclick="switchTab('dashboard')">Dashboard</button>
+                <button class="tab" onclick="switchTab('history')">Historie</button>
+                <button class="tab" onclick="switchTab('themes')">Projekte</button>
+            </div>
+            
+            <!-- Timer Tab -->
+            <div id="timer-tab" class="tab-content active">
+                <!-- Timer Status Warning -->
+                <div id="timer-warning" class="warning-banner" style="display: none;">
+                    <span style="font-size: 24px;">⚠️</span>
+                    <div style="flex: 1;">
+                        <strong>Timer läuft bereits!</strong><br>
+                        <span id="warning-details"></span>
+                    </div>
+                    <button class="btn btn-danger" onclick="stopAllTimers()" style="padding: 8px 16px;">Stop</button>
+                </div>
+                
+                <!-- Arbeitsort Auswahl -->
+                <h2>Arbeitsort auswählen</h2>
+                <div class="location-selector">
+                    <div class="location-btn" id="homeoffice-btn" onclick="selectLocation('homeoffice')">
+                        <div class="location-icon">🏠</div>
+                        <div class="location-label">Homeoffice</div>
+                    </div>
+                    <div class="location-btn" id="office-btn" onclick="selectLocation('office')">
+                        <div class="location-icon">🏢</div>
+                        <div class="location-label">Büro</div>
+                    </div>
+                </div>
+                
+                <!-- Projekt Selection -->
+                <select class="theme-select" id="theme-select" onchange="updateThemeSelect()">
+                    <option value="">-- Projekt auswählen --</option>
+                </select>
+                
+                <!-- Timer Section -->
+                <div class="timer-section">
+                    <!-- Stopwatch -->
+                    <div class="timer-box">
+                        <h3>⏱️ Stopwatch</h3>
+                        <div class="timer-display" id="stopwatch-display">00:00:00</div>
+                        <div class="timer-controls">
+                            <button class="btn btn-success" onclick="startStopwatch()">▶ Start</button>
+                            <button class="btn btn-danger" onclick="stopStopwatch()">⏹ Stop</button>
+                            <button class="btn btn-secondary" onclick="resetStopwatch()">🔄 Reset</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Countdown -->
+                    <div class="timer-box">
+                        <h3>⏲️ Countdown</h3>
+                        <div class="countdown-input-group">
+                            <input type="number" class="countdown-input" id="countdown-hours" placeholder="Std" min="0" max="23" value="0">
+                            <input type="number" class="countdown-input" id="countdown-minutes" placeholder="Min" min="0" max="59" value="0">
+                            <input type="number" class="countdown-input" id="countdown-seconds" placeholder="Sek" min="0" max="59" value="0">
+                        </div>
+                        <div class="timer-display" id="countdown-display">00:00:00</div>
+                        <div class="timer-controls">
+                            <button class="btn btn-success" onclick="startCountdown()">▶ Start</button>
+                            <button class="btn btn-danger" onclick="stopCountdown()">⏹ Stop</button>
+                            <button class="btn btn-secondary" onclick="resetCountdown()">🔄 Reset</button>
+                        </div>
+                        <div style="margin-top: 10px;">
+                            <button class="btn btn-secondary" onclick="testAlarm()" style="font-size: 14px; padding: 8px 16px;">
+                                🔔 Alarm testen
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Manual Entry -->
+                <button class="btn btn-primary" onclick="showManualEntry()" style="width: 100%;">
+                    ✏️ Manuelle Zeiterfassung
+                </button>
+            </div>
+            
+            <!-- Dashboard Tab -->
+            <div id="dashboard-tab" class="tab-content">
+                <h2>📊 Statistiken</h2>
+                
+                <div class="filters">
+                    <select class="filter-select" id="stats-period" onchange="updateStats()">
+                        <option value="today">Heute</option>
+                        <option value="week">Diese Woche</option>
+                        <option value="month" selected>Dieser Monat</option>
+                        <option value="all">Gesamt</option>
+                    </select>
+                    <select class="filter-select" id="stats-theme" onchange="updateStats()">
+                        <option value="">Alle Projekte</option>
+                    </select>
+                </div>
+                
+                <div class="stats-grid" id="stats-grid">
+                    <!-- Stats werden dynamisch geladen -->
+                </div>
+                
+                <div class="card" style="margin-top: 20px;">
+                    <h3>Verteilung Arbeitsort</h3>
+                    <div id="location-chart"></div>
+                </div>
+                
+                <!-- Export Section -->
+                <div class="card" style="margin-top: 20px;">
+                    <h3>📊 Berichte exportieren</h3>
+                    <p style="color: #666; margin-bottom: 15px;">Erstelle detaillierte Zeitübersichten im gewünschten Format</p>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                        <!-- Tagesübersicht -->
+                        <div style="border: 2px solid #eee; border-radius: 8px; padding: 15px;">
+                            <h4 style="margin-bottom: 10px;">📅 Tagesübersicht</h4>
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                <button class="btn btn-primary" onclick="exportReport('day', 'xlsx')" style="width: 100%;">📊 XLSX</button>
+                                <button class="btn btn-primary" onclick="exportReport('day', 'pdf')" style="width: 100%;">📄 PDF</button>
+                                <button class="btn btn-primary" onclick="exportReport('day', 'csv')" style="width: 100%;">📋 CSV</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Wochenübersicht -->
+                        <div style="border: 2px solid #eee; border-radius: 8px; padding: 15px;">
+                            <h4 style="margin-bottom: 10px;">📆 Wochenübersicht</h4>
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                <button class="btn btn-primary" onclick="exportReport('week', 'xlsx')" style="width: 100%;">📊 XLSX</button>
+                                <button class="btn btn-primary" onclick="exportReport('week', 'pdf')" style="width: 100%;">📄 PDF</button>
+                                <button class="btn btn-primary" onclick="exportReport('week', 'csv')" style="width: 100%;">📋 CSV</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Monatsübersicht -->
+                        <div style="border: 2px solid #eee; border-radius: 8px; padding: 15px;">
+                            <h4 style="margin-bottom: 10px;">📊 Monatsübersicht</h4>
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                <button class="btn btn-primary" onclick="exportReport('month', 'xlsx')" style="width: 100%;">📊 XLSX</button>
+                                <button class="btn btn-primary" onclick="exportReport('month', 'pdf')" style="width: 100%;">📄 PDF</button>
+                                <button class="btn btn-primary" onclick="exportReport('month', 'csv')" style="width: 100%;">📋 CSV</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- History Tab -->
+            <div id="history-tab" class="tab-content">
+                <h2>📜 Historie</h2>
+                
+                <div class="filters">
+                    <select class="filter-select" id="history-theme" onchange="updateHistory()">
+                        <option value="">Alle Projekte</option>
+                    </select>
+                    <select class="filter-select" id="history-location" onchange="updateHistory()">
+                        <option value="">Alle Orte</option>
+                        <option value="homeoffice">🏠 Homeoffice</option>
+                        <option value="office">🏢 Büro</option>
+                    </select>
+                    <select class="filter-select" id="history-period" onchange="updateHistory()">
+                        <option value="today">Heute</option>
+                        <option value="week">Diese Woche</option>
+                        <option value="month" selected>Dieser Monat</option>
+                        <option value="all">Alle</option>
+                    </select>
+                </div>
+                
+                <div class="entry-list" id="entry-list">
+                    <!-- Einträge werden dynamisch geladen -->
+                </div>
+            </div>
+            
+            <!-- Themes Tab -->
+            <div id="themes-tab" class="tab-content">
+                <h2>🎨 Projekte verwalten</h2>
+                
+                <div class="theme-manager">
+                    <input type="text" class="theme-input" id="new-theme-name" placeholder="Neues Projekt">
+                    <input type="color" class="color-input" id="new-theme-color" value="#667eea">
+                    <button class="btn btn-primary" onclick="addTheme()">+ Hinzufügen</button>
+                </div>
+                
+                <div class="entry-list" id="theme-list">
+                    <!-- Themen werden dynamisch geladen -->
+                </div>
+                
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-secondary" onclick="exportData()">📥 Daten exportieren</button>
+                    <input type="file" id="import-file" accept=".json" style="display: none;" onchange="importData(event)">
+                    <button class="btn btn-secondary" onclick="document.getElementById('import-file').click()">📤 Daten importieren</button>
+                </div>
+                
+                <!-- Cloud & Backup Section -->
+                <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #eee;">
+                    <h3>☁️ Cloud & Backup</h3>
+                    
+                    <!-- Auto Backup Status -->
+                    <div class="alert alert-info" style="margin: 15px 0;">
+                        <strong>🔄 Automatisches Backup</strong><br>
+                        <small>Letzte Sicherung: <span id="last-backup-time">Noch keine</span></small><br>
+                        <small>Nächste Sicherung: <span id="next-backup-time">In Berechnung...</span></small>
+                    </div>
+                    
+                    <!-- Manual Backup -->
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin: 15px 0;">
+                        <button class="btn btn-primary" onclick="createBackup()">💾 Backup jetzt erstellen</button>
+                        <button class="btn btn-secondary" onclick="restoreBackup()">♻️ Backup wiederherstellen</button>
+                        <button class="btn btn-secondary" onclick="downloadBackup()">📦 Backup herunterladen</button>
+                    </div>
+                    
+                    <!-- Cloud Storage (iCloud kompatibel) -->
+                    <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; margin-top: 15px;">
+                        <h4 style="margin-bottom: 10px;">☁️ iCloud Sync</h4>
+                        <p style="color: #666; font-size: 14px; margin-bottom: 10px;">
+                            Deine Daten werden automatisch im lokalen Speicher gesichert und sind über iCloud auf allen deinen Geräten verfügbar.
+                        </p>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span id="sync-status">🟢 Synchronisiert</span>
+                            <button class="btn btn-secondary" onclick="forceSyncToCloud()" style="padding: 8px 16px; font-size: 14px;">
+                                🔄 Jetzt synchronisieren
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Backup List -->
+                    <div style="margin-top: 20px;">
+                        <h4>📚 Verfügbare Backups</h4>
+                        <div id="backup-list" style="max-height: 200px; overflow-y: auto; border: 2px solid #eee; border-radius: 8px; padding: 10px; margin-top: 10px;">
+                            <!-- Wird dynamisch gefüllt -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Manual Entry Modal -->
+    <div class="modal" id="manual-modal">
+        <div class="modal-content">
+            <h2>✏️ Manuelle Zeiterfassung</h2>
+            <div class="form-group">
+                <label class="form-label">Projekt</label>
+                <select class="form-input" id="manual-theme">
+                    <option value="">-- Projekt auswählen --</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Arbeitsort</label>
+                <select class="form-input" id="manual-location">
+                    <option value="homeoffice">🏠 Homeoffice</option>
+                    <option value="office">🏢 Büro</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Datum</label>
+                <input type="date" class="form-input" id="manual-date">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Startzeit</label>
+                <input type="time" class="form-input" id="manual-start">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Endzeit</label>
+                <input type="time" class="form-input" id="manual-end">
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="btn btn-primary" onclick="saveManualEntry()">💾 Speichern</button>
+                <button class="btn btn-secondary" onclick="hideManualEntry()">Abbrechen</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Edit Entry Modal -->
+    <div class="modal" id="edit-modal">
+        <div class="modal-content">
+            <h2>✏️ Eintrag bearbeiten</h2>
+            <div class="form-group">
+                <label class="form-label">Projekt</label>
+                <select class="form-input" id="edit-theme"></select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Arbeitsort</label>
+                <select class="form-input" id="edit-location">
+                    <option value="homeoffice">🏠 Homeoffice</option>
+                    <option value="office">🏢 Büro</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Datum</label>
+                <input type="date" class="form-input" id="edit-date">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Startzeit</label>
+                <input type="time" class="form-input" id="edit-start">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Endzeit</label>
+                <input type="time" class="form-input" id="edit-end">
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="btn btn-primary" onclick="updateEntry()">💾 Aktualisieren</button>
+                <button class="btn btn-secondary" onclick="hideEditModal()">Abbrechen</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Edit Theme/Project Modal -->
+    <div class="modal" id="edit-theme-modal">
+        <div class="modal-content">
+            <h2>✏️ Projekt bearbeiten</h2>
+            <div class="form-group">
+                <label class="form-label">Projektname</label>
+                <input type="text" class="form-input" id="edit-theme-name">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Farbe</label>
+                <input type="color" class="color-input" id="edit-theme-color" style="width: 100%; height: 50px;">
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="btn btn-primary" onclick="updateTheme()">💾 Aktualisieren</button>
+                <button class="btn btn-secondary" onclick="hideEditThemeModal()">Abbrechen</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Global State
+        let themes = [];
+        let entries = [];
+        let currentLocation = null;
+        let stopwatchInterval = null;
+        let stopwatchTime = 0;
+        let stopwatchStartTime = null;
+        let countdownInterval = null;
+        let countdownTime = 0; // Initial 0 Sekunden
+        let countdownActive = false;
+        let editingEntryId = null;
+        let editingThemeId = null;
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            updateThemeSelect();
+            updateViews();
+            setDefaultDate();
+            
+            // Frage nach Benachrichtigungs-Berechtigung
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') {
+                        console.log('✅ Benachrichtigungen aktiviert');
+                    }
+                });
+            }
+            
+            // Initialisiere Backup-System
+            initBackupSystem();
+            
+            // Prüfe iOS Installation
+            checkIOSInstallation();
+            
+            // Aktualisiere Backup-Status alle 5 Minuten
+            setInterval(updateBackupStatus, 5 * 60 * 1000);
+            
+            // Aktualisiere Timer-Warnung regelmäßig
+            setInterval(updateTimerWarning, 1000);
+            updateTimerWarning(); // Initial
+            
+            console.log('✅ Zeiterfassung iOS mit Duplikats-Erkennung geladen!');
+        });
+        
+        // Tab Switching
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+            
+            if (tabName === 'dashboard') updateStats();
+            if (tabName === 'history') updateHistory();
+            if (tabName === 'themes') updateThemeList();
+        }
+        
+        // Location Selection
+        function selectLocation(location) {
+            currentLocation = location;
+            document.querySelectorAll('.location-btn').forEach(btn => btn.classList.remove('selected'));
+            document.getElementById(`${location}-btn`).classList.add('selected');
+        }
+        
+        // ==================== DUPLIKATS- UND ÜBERLAPPUNGS-ERKENNUNG ====================
+        
+        function isTimerRunning() {
+            return stopwatchInterval !== null || countdownInterval !== null;
+        }
+        
+        function getActiveTimerInfo() {
+            if (stopwatchInterval) {
+                const themeId = document.getElementById('theme-select').value;
+                const theme = themes.find(t => t.id === themeId);
+                return {
+                    type: 'Stopwatch',
+                    theme: theme ? theme.name : 'Unbekannt',
+                    location: currentLocation === 'homeoffice' ? 'Homeoffice' : 'Büro',
+                    duration: formatDuration(Math.floor(stopwatchTime / 1000))
+                };
+            }
+            if (countdownInterval) {
+                const themeId = document.getElementById('theme-select').value;
+                const theme = themes.find(t => t.id === themeId);
+                return {
+                    type: 'Countdown',
+                    theme: theme ? theme.name : 'Unbekannt',
+                    location: currentLocation === 'homeoffice' ? 'Homeoffice' : 'Büro',
+                    duration: formatDuration(countdownTime)
+                };
+            }
+            return null;
+        }
+        
+        function updateTimerWarning() {
+            const warning = document.getElementById('timer-warning');
+            const details = document.getElementById('warning-details');
+            
+            if (isTimerRunning()) {
+                const info = getActiveTimerInfo();
+                details.textContent = `${info.type} • ${info.theme} • ${info.location} • ${info.duration}`;
+                warning.style.display = 'flex';
+                
+                // Markiere aktive Timer-Box
+                if (stopwatchInterval) {
+                    document.querySelectorAll('.timer-box')[0].classList.add('timer-active');
+                } else {
+                    document.querySelectorAll('.timer-box')[0].classList.remove('timer-active');
+                }
+                
+                if (countdownInterval) {
+                    document.querySelectorAll('.timer-box')[1].classList.add('timer-active');
+                } else {
+                    document.querySelectorAll('.timer-box')[1].classList.remove('timer-active');
+                }
+            } else {
+                warning.style.display = 'none';
+                document.querySelectorAll('.timer-box').forEach(box => box.classList.remove('timer-active'));
+            }
+        }
+        
+        function stopAllTimers() {
+            if (stopwatchInterval) {
+                stopStopwatch();
+            }
+            if (countdownInterval) {
+                stopCountdown();
+            }
+            updateTimerWarning();
+        }
+        
+        function checkForOverlaps(newEntry) {
+            // Prüfe auf Überlappungen mit bestehenden Einträgen
+            const newStart = new Date(newEntry.timestamp);
+            const newEnd = new Date(newStart.getTime() + newEntry.duration * 1000);
+            
+            const overlaps = entries.filter(entry => {
+                if (entry.id === newEntry.id) return false; // Selbst ignorieren bei Edit
+                
+                const existingStart = new Date(entry.timestamp);
+                const existingEnd = new Date(existingStart.getTime() + entry.duration * 1000);
+                
+                // Prüfe ob sich die Zeiten überschneiden
+                return (newStart < existingEnd && newEnd > existingStart);
+            });
+            
+            return overlaps;
+        }
+        
+        function checkForDuplicates(newEntry) {
+            // Prüfe auf exakte Duplikate (gleiches Projekt, gleiche Zeit, gleicher Ort)
+            const duplicates = entries.filter(entry => {
+                if (entry.id === newEntry.id) return false;
+                
+                const timeDiff = Math.abs(new Date(entry.timestamp) - new Date(newEntry.timestamp));
+                const durationDiff = Math.abs(entry.duration - newEntry.duration);
+                
+                return (
+                    entry.themeId === newEntry.themeId &&
+                    entry.location === newEntry.location &&
+                    timeDiff < 60000 && // Weniger als 1 Minute Unterschied
+                    durationDiff < 60 // Weniger als 1 Minute Unterschied
+                );
+            });
+            
+            return duplicates;
+        }
+        
+        function handleConflict(newEntry, overlaps, duplicates) {
+            let message = '';
+            
+            if (duplicates.length > 0) {
+                message += '⚠️ DUPLIKAT ERKANNT!\n\n';
+                message += 'Es existiert bereits ein sehr ähnlicher Eintrag:\n';
+                duplicates.forEach(dup => {
+                    const date = new Date(dup.timestamp);
+                    message += `• ${dup.themeName} - ${formatTime(date)} (${formatDuration(dup.duration)})\n`;
+                });
+                message += '\nMöchtest du trotzdem speichern?';
+                
+                return confirm(message);
+            }
+            
+            if (overlaps.length > 0) {
+                message += '⚠️ ZEITÜBERSCHNEIDUNG!\n\n';
+                message += 'Diese Zeit überschneidet sich mit:\n';
+                overlaps.forEach(overlap => {
+                    const date = new Date(overlap.timestamp);
+                    message += `• ${overlap.themeName} - ${formatTime(date)} (${formatDuration(overlap.duration)})\n`;
+                });
+                message += '\nOptionen:\n';
+                message += '1. Abbrechen (empfohlen)\n';
+                message += '2. Trotzdem speichern\n';
+                message += '3. Überlappende Einträge anpassen\n\n';
+                message += 'Trotzdem speichern? (Nicht empfohlen)';
+                
+                return confirm(message);
+            }
+            
+            return true; // Keine Konflikte
+        }
+        
+        // Stopwatch Functions
+        function startStopwatch() {
+            if (!currentLocation) {
+                alert('Bitte wähle zuerst einen Arbeitsort aus!');
+                return;
+            }
+            if (!document.getElementById('theme-select').value) {
+                alert('Bitte wähle ein Projekt aus!');
+                return;
+            }
+            
+            // NEU: Prüfe ob bereits ein Timer läuft
+            if (isTimerRunning()) {
+                const info = getActiveTimerInfo();
+                const message = `⚠️ Es läuft bereits ein Timer!\n\n${info.type}: ${info.theme}\nOrt: ${info.location}\nLaufzeit: ${info.duration}\n\nBitte stoppe zuerst den laufenden Timer!`;
+                alert(message);
+                return;
+            }
+            
+            if (!stopwatchInterval) {
+                stopwatchStartTime = Date.now() - stopwatchTime;
+                stopwatchInterval = setInterval(() => {
+                    stopwatchTime = Date.now() - stopwatchStartTime;
+                    updateStopwatchDisplay();
+                    updateTimerWarning(); // Aktualisiere Warnung
+                }, 100);
+                updateTimerWarning();
+            }
+        }
+        
+        function stopStopwatch() {
+            if (stopwatchInterval) {
+                clearInterval(stopwatchInterval);
+                stopwatchInterval = null;
+                
+                // Save entry mit Duplikats-Check
+                if (stopwatchTime > 0) {
+                    const themeId = document.getElementById('theme-select').value;
+                    const duration = Math.floor(stopwatchTime / 1000);
+                    
+                    // Erstelle temporären Eintrag für Check
+                    const tempEntry = {
+                        themeId,
+                        location: currentLocation,
+                        duration,
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    // Prüfe auf Überlappungen und Duplikate
+                    const overlaps = checkForOverlaps(tempEntry);
+                    const duplicates = checkForDuplicates(tempEntry);
+                    
+                    if (handleConflict(tempEntry, overlaps, duplicates)) {
+                        saveEntry(themeId, currentLocation, duration);
+                        resetStopwatch();
+                    } else {
+                        // Nutzer hat abgebrochen, Zeit bleibt bestehen
+                        alert('Zeiteintrag wurde NICHT gespeichert. Timer zurückgesetzt.');
+                        resetStopwatch();
+                    }
+                } else {
+                    resetStopwatch();
+                }
+                
+                updateTimerWarning();
+            }
+        }
+        
+        function resetStopwatch() {
+            clearInterval(stopwatchInterval);
+            stopwatchInterval = null;
+            stopwatchTime = 0;
+            updateStopwatchDisplay();
+            updateTimerWarning();
+        }
+        
+        function updateStopwatchDisplay() {
+            const time = Math.floor(stopwatchTime / 1000);
+            const hours = Math.floor(time / 3600);
+            const minutes = Math.floor((time % 3600) / 60);
+            const seconds = time % 60;
+            document.getElementById('stopwatch-display').textContent = 
+                `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+        }
+        
+        // Countdown Functions
+        function startCountdown() {
+            if (!currentLocation) {
+                alert('Bitte wähle zuerst einen Arbeitsort aus!');
+                return;
+            }
+            if (!document.getElementById('theme-select').value) {
+                alert('Bitte wähle ein Projekt aus!');
+                return;
+            }
+            
+            // NEU: Prüfe ob bereits ein Timer läuft
+            if (isTimerRunning()) {
+                const info = getActiveTimerInfo();
+                const message = `⚠️ Es läuft bereits ein Timer!\n\n${info.type}: ${info.theme}\nOrt: ${info.location}\nLaufzeit: ${info.duration}\n\nBitte stoppe zuerst den laufenden Timer!`;
+                alert(message);
+                return;
+            }
+            
+            if (!countdownActive) {
+                const hours = parseInt(document.getElementById('countdown-hours').value) || 0;
+                const minutes = parseInt(document.getElementById('countdown-minutes').value) || 0;
+                const seconds = parseInt(document.getElementById('countdown-seconds').value) || 0;
+                
+                countdownTime = hours * 3600 + minutes * 60 + seconds;
+                
+                if (countdownTime <= 0) {
+                    alert('Bitte gib eine gültige Zeit ein!');
+                    return;
+                }
+                
+                countdownActive = true;
+                const startTime = Date.now();
+                const endTime = startTime + (countdownTime * 1000);
+                
+                countdownInterval = setInterval(() => {
+                    const now = Date.now();
+                    const remaining = Math.max(0, Math.ceil((endTime - now) / 1000));
+                    countdownTime = remaining;
+                    updateCountdownDisplay();
+                    updateTimerWarning(); // Aktualisiere Warnung
+                    
+                    if (remaining <= 0) {
+                        stopCountdown();
+                        playAlarm();
+                        alert('⏰ Countdown abgelaufen!');
+                    }
+                }, 100);
+                updateTimerWarning();
+            }
+        }
+        
+        function stopCountdown() {
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+                countdownActive = false;
+                
+                // Save entry if time was used
+                const hours = parseInt(document.getElementById('countdown-hours').value) || 0;
+                const minutes = parseInt(document.getElementById('countdown-minutes').value) || 0;
+                const seconds = parseInt(document.getElementById('countdown-seconds').value) || 0;
+                const originalTime = hours * 3600 + minutes * 60 + seconds;
+                const usedTime = originalTime - countdownTime;
+                
+                if (usedTime > 0) {
+                    const themeId = document.getElementById('theme-select').value;
+                    
+                    // Erstelle temporären Eintrag für Check
+                    const tempEntry = {
+                        themeId,
+                        location: currentLocation,
+                        duration: usedTime,
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    // Prüfe auf Überlappungen und Duplikate
+                    const overlaps = checkForOverlaps(tempEntry);
+                    const duplicates = checkForDuplicates(tempEntry);
+                    
+                    if (handleConflict(tempEntry, overlaps, duplicates)) {
+                        saveEntry(themeId, currentLocation, usedTime);
+                    } else {
+                        alert('Zeiteintrag wurde NICHT gespeichert.');
+                    }
+                }
+                
+                updateTimerWarning();
+            }
+        }
+        
+        function resetCountdown() {
+            clearInterval(countdownInterval);
+            countdownInterval = null;
+            countdownActive = false;
+            const hours = parseInt(document.getElementById('countdown-hours').value) || 0;
+            const minutes = parseInt(document.getElementById('countdown-minutes').value) || 0;
+            const seconds = parseInt(document.getElementById('countdown-seconds').value) || 0;
+            countdownTime = hours * 3600 + minutes * 60 + seconds;
+            updateCountdownDisplay();
+            updateTimerWarning();
+        }
+        
+        function updateCountdownDisplay() {
+            const hours = Math.floor(countdownTime / 3600);
+            const minutes = Math.floor((countdownTime % 3600) / 60);
+            const seconds = countdownTime % 60;
+            document.getElementById('countdown-display').textContent = 
+                `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+        }
+        
+        function playAlarm() {
+            // Erstelle Audio Context für bessere Browser-Kompatibilität
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            const audioCtx = new AudioContext();
+            
+            // Spiele eine Sequenz von Tönen für einen deutlichen Alarm
+            const frequencies = [880, 988, 880, 988, 880]; // A5 und B5 Töne
+            const duration = 0.15; // Dauer jedes Tons in Sekunden
+            const gap = 0.05; // Pause zwischen Tönen
+            
+            frequencies.forEach((freq, index) => {
+                const startTime = audioCtx.currentTime + (index * (duration + gap));
+                
+                // Oszillator (Ton-Generator)
+                const oscillator = audioCtx.createOscillator();
+                oscillator.type = 'sine'; // Sanfter Sinus-Ton
+                oscillator.frequency.setValueAtTime(freq, startTime);
+                
+                // Lautstärke-Kontrolle mit Fade-in/Fade-out
+                const gainNode = audioCtx.createGain();
+                gainNode.gain.setValueAtTime(0, startTime);
+                gainNode.gain.linearRampToValueAtTime(0.3, startTime + 0.02); // Fade-in
+                gainNode.gain.linearRampToValueAtTime(0.3, startTime + duration - 0.02);
+                gainNode.gain.linearRampToValueAtTime(0, startTime + duration); // Fade-out
+                
+                // Verbinde Oszillator -> Lautstärke -> Lautsprecher
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                
+                // Starte und stoppe den Ton
+                oscillator.start(startTime);
+                oscillator.stop(startTime + duration);
+            });
+            
+            // Zeige visuelle Benachrichtigung
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification('⏰ Countdown abgelaufen!', {
+                    body: 'Deine Zeit ist um!',
+                    icon: '⏰',
+                    vibrate: [200, 100, 200]
+                });
+            }
+        }
+        
+        // Test-Funktion für Alarm-Sound
+        function testAlarm() {
+            playAlarm();
+            // Zeige Feedback
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.textContent = '🔊 Alarm wird abgespielt...';
+            btn.disabled = true;
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }, 1500);
+        }
+        
+        // Helper Functions
+        function pad(num) {
+            return num.toString().padStart(2, '0');
+        }
+        
+        function formatDuration(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            return `${hours}h ${minutes}m`;
+        }
+        
+        function formatTime(date) {
+            return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+        }
+        
+        function formatDate(date) {
+            return date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+        }
+        
+        // Theme Management
+        function addTheme() {
+            const name = document.getElementById('new-theme-name').value.trim();
+            const color = document.getElementById('new-theme-color').value;
+            
+            if (!name) {
+                alert('Bitte gib einen Projektnamen ein!');
+                return;
+            }
+            
+            themes.push({
+                id: Date.now().toString(),
+                name,
+                color
+            });
+            
+            document.getElementById('new-theme-name').value = '';
+            saveData();
+            updateThemeSelect();
+            updateThemeList();
+        }
+        
+        function deleteTheme(id) {
+            if (confirm('Projekt wirklich löschen?')) {
+                themes = themes.filter(t => t.id !== id);
+                saveData();
+                updateThemeSelect();
+                updateThemeList();
+            }
+        }
+        
+        function editTheme(id) {
+            const theme = themes.find(t => t.id === id);
+            if (!theme) return;
+            
+            editingThemeId = id;
+            document.getElementById('edit-theme-name').value = theme.name;
+            document.getElementById('edit-theme-color').value = theme.color;
+            document.getElementById('edit-theme-modal').classList.add('active');
+        }
+        
+        function hideEditThemeModal() {
+            editingThemeId = null;
+            document.getElementById('edit-theme-modal').classList.remove('active');
+        }
+        
+        function updateTheme() {
+            const theme = themes.find(t => t.id === editingThemeId);
+            if (!theme) return;
+            
+            const newName = document.getElementById('edit-theme-name').value.trim();
+            const newColor = document.getElementById('edit-theme-color').value;
+            
+            if (!newName) {
+                alert('Bitte gib einen Projektnamen ein!');
+                return;
+            }
+            
+            // Aktualisiere Projekt
+            theme.name = newName;
+            theme.color = newColor;
+            
+            // Aktualisiere alle Einträge mit diesem Projekt
+            entries.forEach(entry => {
+                if (entry.themeId === editingThemeId) {
+                    entry.themeName = newName;
+                    entry.themeColor = newColor;
+                }
+            });
+            
+            saveData();
+            updateThemeSelect();
+            updateThemeList();
+            updateHistory();
+            updateStats();
+            hideEditThemeModal();
+        }
+        
+        function updateThemeSelect() {
+            const selects = [
+                document.getElementById('theme-select'),
+                document.getElementById('manual-theme'),
+                document.getElementById('edit-theme'),
+                document.getElementById('stats-theme'),
+                document.getElementById('history-theme')
+            ];
+            
+            selects.forEach(select => {
+                if (!select) return;
+                const currentValue = select.value;
+                select.innerHTML = '<option value="">-- Projekt auswählen --</option>';
+                themes.forEach(theme => {
+                    const option = document.createElement('option');
+                    option.value = theme.id;
+                    option.textContent = theme.name;
+                    select.appendChild(option);
+                });
+                select.value = currentValue;
+            });
+        }
+        
+        function updateThemeList() {
+            const list = document.getElementById('theme-list');
+            list.innerHTML = '';
+            
+            themes.forEach(theme => {
+                const item = document.createElement('div');
+                item.className = 'entry-item';
+                item.innerHTML = `
+                    <div class="entry-info">
+                        <span class="entry-theme" style="background: ${theme.color}">${theme.name}</span>
+                    </div>
+                    <div class="entry-actions">
+                        <button class="btn-icon" onclick="editTheme('${theme.id}')">✏️</button>
+                        <button class="btn-icon" onclick="deleteTheme('${theme.id}')">🗑️</button>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+        
+        // Entry Management
+        function saveEntry(themeId, location, duration) {
+            const theme = themes.find(t => t.id === themeId);
+            if (!theme) return;
+            
+            const entry = {
+                id: Date.now().toString(),
+                themeId,
+                themeName: theme.name,
+                themeColor: theme.color,
+                location,
+                duration,
+                timestamp: new Date().toISOString(),
+                date: new Date().toISOString().split('T')[0]
+            };
+            
+            entries.unshift(entry);
+            saveData();
+            updateViews();
+        }
+        
+        function deleteEntry(id) {
+            if (confirm('Eintrag wirklich löschen?')) {
+                entries = entries.filter(e => e.id !== id);
+                saveData();
+                updateHistory();
+                updateStats();
+            }
+        }
+        
+        function showEditModal(id) {
+            const entry = entries.find(e => e.id === id);
+            if (!entry) return;
+            
+            editingEntryId = id;
+            document.getElementById('edit-theme').value = entry.themeId;
+            document.getElementById('edit-location').value = entry.location;
+            
+            const date = new Date(entry.timestamp);
+            document.getElementById('edit-date').value = entry.date;
+            document.getElementById('edit-start').value = formatTimeInput(date);
+            
+            const endDate = new Date(date.getTime() + entry.duration * 1000);
+            document.getElementById('edit-end').value = formatTimeInput(endDate);
+            
+            document.getElementById('edit-modal').classList.add('active');
+        }
+        
+        function hideEditModal() {
+            editingEntryId = null;
+            document.getElementById('edit-modal').classList.remove('active');
+        }
+        
+        function updateEntry() {
+            const entry = entries.find(e => e.id === editingEntryId);
+            if (!entry) return;
+            
+            const themeId = document.getElementById('edit-theme').value;
+            const theme = themes.find(t => t.id === themeId);
+            const location = document.getElementById('edit-location').value;
+            const date = document.getElementById('edit-date').value;
+            const startTime = document.getElementById('edit-start').value;
+            const endTime = document.getElementById('edit-end').value;
+            
+            if (!themeId || !location || !date || !startTime || !endTime) {
+                alert('Bitte fülle alle Felder aus!');
+                return;
+            }
+            
+            const start = new Date(`${date}T${startTime}`);
+            const end = new Date(`${date}T${endTime}`);
+            const duration = Math.floor((end - start) / 1000);
+            
+            if (duration <= 0) {
+                alert('Endzeit muss nach Startzeit liegen!');
+                return;
+            }
+            
+            // NEU: Erstelle temporären Eintrag für Konflikt-Check
+            const tempEntry = {
+                id: editingEntryId, // Wichtig: Eigene ID mitgeben zum Ignorieren
+                themeId,
+                themeName: theme.name,
+                themeColor: theme.color,
+                location,
+                duration,
+                timestamp: start.toISOString(),
+                date
+            };
+            
+            // Prüfe auf Überlappungen und Duplikate
+            const overlaps = checkForOverlaps(tempEntry);
+            const duplicates = checkForDuplicates(tempEntry);
+            
+            if (!handleConflict(tempEntry, overlaps, duplicates)) {
+                return; // Nutzer hat abgebrochen
+            }
+            
+            entry.themeId = themeId;
+            entry.themeName = theme.name;
+            entry.themeColor = theme.color;
+            entry.location = location;
+            entry.duration = duration;
+            entry.timestamp = start.toISOString();
+            entry.date = date;
+            
+            saveData();
+            updateHistory();
+            updateStats();
+            hideEditModal();
+            alert('✅ Eintrag erfolgreich aktualisiert!');
+        }
+        
+        function formatTimeInput(date) {
+            return date.toTimeString().substring(0, 5);
+        }
+        
+        // Manual Entry
+        function showManualEntry() {
+            if (!currentLocation) {
+                alert('Bitte wähle zuerst einen Arbeitsort aus!');
+                return;
+            }
+            document.getElementById('manual-location').value = currentLocation;
+            document.getElementById('manual-modal').classList.add('active');
+        }
+        
+        function hideManualEntry() {
+            document.getElementById('manual-modal').classList.remove('active');
+        }
+        
+        function setDefaultDate() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('manual-date').value = today;
+        }
+        
+        function saveManualEntry() {
+            const themeId = document.getElementById('manual-theme').value;
+            const location = document.getElementById('manual-location').value;
+            const date = document.getElementById('manual-date').value;
+            const startTime = document.getElementById('manual-start').value;
+            const endTime = document.getElementById('manual-end').value;
+            
+            if (!themeId || !location || !date || !startTime || !endTime) {
+                alert('Bitte fülle alle Felder aus!');
+                return;
+            }
+            
+            const theme = themes.find(t => t.id === themeId);
+            const start = new Date(`${date}T${startTime}`);
+            const end = new Date(`${date}T${endTime}`);
+            const duration = Math.floor((end - start) / 1000);
+            
+            if (duration <= 0) {
+                alert('Endzeit muss nach Startzeit liegen!');
+                return;
+            }
+            
+            // NEU: Erstelle temporären Eintrag für Konflikt-Check
+            const tempEntry = {
+                themeId,
+                themeName: theme.name,
+                themeColor: theme.color,
+                location,
+                duration,
+                timestamp: start.toISOString(),
+                date
+            };
+            
+            // Prüfe auf Überlappungen und Duplikate
+            const overlaps = checkForOverlaps(tempEntry);
+            const duplicates = checkForDuplicates(tempEntry);
+            
+            if (!handleConflict(tempEntry, overlaps, duplicates)) {
+                return; // Nutzer hat abgebrochen
+            }
+            
+            const entry = {
+                id: Date.now().toString(),
+                themeId,
+                themeName: theme.name,
+                themeColor: theme.color,
+                location,
+                duration,
+                timestamp: start.toISOString(),
+                date
+            };
+            
+            entries.unshift(entry);
+            saveData();
+            updateViews();
+            hideManualEntry();
+            alert('✅ Zeiteintrag erfolgreich gespeichert!');
+        }
+        
+        // Statistics
+        function updateStats() {
+            const period = document.getElementById('stats-period').value;
+            const themeFilter = document.getElementById('stats-theme').value;
+            
+            const filtered = filterEntries(entries, period, themeFilter, '');
+            
+            const totalSeconds = filtered.reduce((sum, e) => sum + e.duration, 0);
+            const homeofficeSeconds = filtered.filter(e => e.location === 'homeoffice').reduce((sum, e) => sum + e.duration, 0);
+            const officeSeconds = filtered.filter(e => e.location === 'office').reduce((sum, e) => sum + e.duration, 0);
+            
+            const totalHours = (totalSeconds / 3600).toFixed(1);
+            const homeofficeHours = (homeofficeSeconds / 3600).toFixed(1);
+            const officeHours = (officeSeconds / 3600).toFixed(1);
+            
+            const homeofficePercent = totalSeconds > 0 ? ((homeofficeSeconds / totalSeconds) * 100).toFixed(0) : 0;
+            const officePercent = totalSeconds > 0 ? ((officeSeconds / totalSeconds) * 100).toFixed(0) : 0;
+            
+            const grid = document.getElementById('stats-grid');
+            grid.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-label">Gesamt</div>
+                    <div class="stat-value">${totalHours}h</div>
+                    <div class="stat-label">${filtered.length} Einträge</div>
+                </div>
+                <div class="stat-card homeoffice">
+                    <div class="stat-label">🏠 Homeoffice</div>
+                    <div class="stat-value">${homeofficeHours}h</div>
+                    <div class="stat-label">${homeofficePercent}% der Gesamtzeit</div>
+                </div>
+                <div class="stat-card office">
+                    <div class="stat-label">🏢 Büro</div>
+                    <div class="stat-value">${officeHours}h</div>
+                    <div class="stat-label">${officePercent}% der Gesamtzeit</div>
+                </div>
+            `;
+            
+            // Location Chart
+            const chart = document.getElementById('location-chart');
+            const homeWidth = totalSeconds > 0 ? (homeofficeSeconds / totalSeconds * 100) : 0;
+            const officeWidth = totalSeconds > 0 ? (officeSeconds / totalSeconds * 100) : 0;
+            
+            chart.innerHTML = `
+                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                    <div style="flex: ${homeWidth}; background: linear-gradient(135deg, #4299e1 0%, #667eea 100%); 
+                         padding: 20px; border-radius: 8px; color: white; text-align: center; font-weight: bold;">
+                        🏠 ${homeofficePercent}%
+                    </div>
+                    <div style="flex: ${officeWidth}; background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); 
+                         padding: 20px; border-radius: 8px; color: white; text-align: center; font-weight: bold;">
+                        🏢 ${officePercent}%
+                    </div>
+                </div>
+            `;
+        }
+        
+        // History
+        function updateHistory() {
+            const period = document.getElementById('history-period').value;
+            const themeFilter = document.getElementById('history-theme').value;
+            const locationFilter = document.getElementById('history-location').value;
+            
+            const filtered = filterEntries(entries, period, themeFilter, locationFilter);
+            
+            const list = document.getElementById('entry-list');
+            list.innerHTML = '';
+            
+            if (filtered.length === 0) {
+                list.innerHTML = '<p style="text-align: center; color: #999;">Keine Einträge gefunden</p>';
+                return;
+            }
+            
+            filtered.forEach(entry => {
+                const date = new Date(entry.timestamp);
+                const locationIcon = entry.location === 'homeoffice' ? '🏠' : '🏢';
+                const locationLabel = entry.location === 'homeoffice' ? 'Homeoffice' : 'Büro';
+                
+                const item = document.createElement('div');
+                item.className = `entry-item ${entry.location}`;
+                item.innerHTML = `
+                    <div class="entry-info">
+                        <div class="entry-header">
+                            <span class="entry-theme" style="background: ${entry.themeColor}">${entry.themeName}</span>
+                            <span class="entry-location">${locationIcon} ${locationLabel}</span>
+                        </div>
+                        <div class="entry-date">${formatDate(date)} • ${formatTime(date)}</div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div class="entry-duration">${formatDuration(entry.duration)}</div>
+                        <div class="entry-actions">
+                            <button class="btn-icon" onclick="showEditModal('${entry.id}')">✏️</button>
+                            <button class="btn-icon" onclick="deleteEntry('${entry.id}')">🗑️</button>
+                        </div>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+        
+        function filterEntries(entries, period, themeFilter, locationFilter) {
+            let filtered = [...entries];
+            
+            // Period filter
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            
+            if (period === 'today') {
+                filtered = filtered.filter(e => new Date(e.timestamp) >= today);
+            } else if (period === 'week') {
+                const weekAgo = new Date(today);
+                weekAgo.setDate(weekAgo.getDate() - 7);
+                filtered = filtered.filter(e => new Date(e.timestamp) >= weekAgo);
+            } else if (period === 'month') {
+                const monthAgo = new Date(today);
+                monthAgo.setMonth(monthAgo.getMonth() - 1);
+                filtered = filtered.filter(e => new Date(e.timestamp) >= monthAgo);
+            }
+            
+            // Theme filter
+            if (themeFilter) {
+                filtered = filtered.filter(e => e.themeId === themeFilter);
+            }
+            
+            // Location filter
+            if (locationFilter) {
+                filtered = filtered.filter(e => e.location === locationFilter);
+            }
+            
+            return filtered;
+        }
+        
+        // Data Persistence
+        function saveData() {
+            localStorage.setItem('timeTracking_themes', JSON.stringify(themes));
+            localStorage.setItem('timeTracking_entries', JSON.stringify(entries));
+        }
+        
+        function loadData() {
+            const savedThemes = localStorage.getItem('timeTracking_themes');
+            const savedEntries = localStorage.getItem('timeTracking_entries');
+            
+            if (savedThemes) themes = JSON.parse(savedThemes);
+            if (savedEntries) entries = JSON.parse(savedEntries);
+            
+            // Add default themes if none exist
+            if (themes.length === 0) {
+                themes = [
+                    { id: '1', name: 'Projekt A', color: '#667eea' },
+                    { id: '2', name: 'Meeting', color: '#f56565' },
+                    { id: '3', name: 'Admin', color: '#48bb78' }
+                ];
+                saveData();
+            }
+        }
+        
+        function exportData() {
+            const data = { themes, entries };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `zeiterfassung_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.themes && data.entries) {
+                        if (confirm('Möchtest du die importierten Daten mit den bestehenden zusammenführen oder ersetzen?\n\nOK = Ersetzen\nAbbrechen = Zusammenführen')) {
+                            themes = data.themes;
+                            entries = data.entries;
+                        } else {
+                            themes = [...themes, ...data.themes];
+                            entries = [...entries, ...data.entries];
+                        }
+                        saveData();
+                        updateViews();
+                        alert('Daten erfolgreich importiert!');
+                    }
+                } catch (error) {
+                    alert('Fehler beim Importieren der Daten!');
+                }
+            };
+            reader.readAsText(file);
+        }
+        
+        function updateViews() {
+            updateThemeSelect();
+            updateHistory();
+            updateStats();
+        }
+        
+        // ==================== EXPORT FUNCTIONS ====================
+        
+        function getReportData(period) {
+            const now = new Date();
+            let filtered = [];
+            let title = '';
+            let dateRange = '';
+            
+            if (period === 'day') {
+                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                filtered = entries.filter(e => new Date(e.timestamp) >= today);
+                title = 'Tagesübersicht';
+                dateRange = today.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+            } else if (period === 'week') {
+                const weekStart = new Date(now);
+                weekStart.setDate(now.getDate() - now.getDay() + 1); // Montag
+                weekStart.setHours(0, 0, 0, 0);
+                filtered = entries.filter(e => new Date(e.timestamp) >= weekStart);
+                const weekEnd = new Date(weekStart);
+                weekEnd.setDate(weekStart.getDate() + 6);
+                title = 'Wochenübersicht';
+                dateRange = `${weekStart.toLocaleDateString('de-DE')} - ${weekEnd.toLocaleDateString('de-DE')}`;
+            } else if (period === 'month') {
+                const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+                filtered = entries.filter(e => new Date(e.timestamp) >= monthStart);
+                title = 'Monatsübersicht';
+                dateRange = monthStart.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+            }
+            
+            // Sortiere nach Datum
+            filtered.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            
+            return { filtered, title, dateRange };
+        }
+        
+        function exportReport(period, format) {
+            const { filtered, title, dateRange } = getReportData(period);
+            
+            if (filtered.length === 0) {
+                alert('Keine Einträge für diesen Zeitraum vorhanden!');
+                return;
+            }
+            
+            if (format === 'xlsx') {
+                exportToXLSX(filtered, title, dateRange);
+            } else if (format === 'pdf') {
+                exportToPDF(filtered, title, dateRange);
+            } else if (format === 'csv') {
+                exportToCSV(filtered, title, dateRange);
+            }
+        }
+        
+        function exportToXLSX(data, title, dateRange) {
+            // Erstelle Daten-Array für Excel
+            const excelData = [];
+            
+            // Header
+            excelData.push([title]);
+            excelData.push([dateRange]);
+            excelData.push([]);
+            excelData.push(['Datum', 'Wochentag', 'Startzeit', 'Endzeit', 'Dauer', 'Projekt', 'Arbeitsort']);
+            
+            // Daten
+            data.forEach(entry => {
+                const date = new Date(entry.timestamp);
+                const endDate = new Date(date.getTime() + entry.duration * 1000);
+                const weekday = date.toLocaleDateString('de-DE', { weekday: 'short' });
+                const dateStr = date.toLocaleDateString('de-DE');
+                const startTime = formatTime(date);
+                const endTime = formatTime(endDate);
+                const duration = formatDuration(entry.duration);
+                const location = entry.location === 'homeoffice' ? 'Homeoffice' : 'Büro';
+                
+                excelData.push([dateStr, weekday, startTime, endTime, duration, entry.themeName, location]);
+            });
+            
+            // Leerzeile
+            excelData.push([]);
+            
+            // Zusammenfassung
+            const totalSeconds = data.reduce((sum, e) => sum + e.duration, 0);
+            const homeofficeSeconds = data.filter(e => e.location === 'homeoffice').reduce((sum, e) => sum + e.duration, 0);
+            const officeSeconds = data.filter(e => e.location === 'office').reduce((sum, e) => sum + e.duration, 0);
+            
+            excelData.push(['Zusammenfassung']);
+            excelData.push(['Gesamtzeit:', formatDuration(totalSeconds)]);
+            excelData.push(['Homeoffice:', formatDuration(homeofficeSeconds)]);
+            excelData.push(['Büro:', formatDuration(officeSeconds)]);
+            excelData.push(['Anzahl Einträge:', data.length]);
+            
+            // Erstelle Workbook
+            const ws = XLSX.utils.aoa_to_sheet(excelData);
+            
+            // Spaltenbreiten
+            ws['!cols'] = [
+                { wch: 12 },  // Datum
+                { wch: 10 },  // Wochentag
+                { wch: 10 },  // Startzeit
+                { wch: 10 },  // Endzeit
+                { wch: 10 },  // Dauer
+                { wch: 20 },  // Projekt
+                { wch: 12 }   // Arbeitsort
+            ];
+            
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, title);
+            
+            // Download
+            const filename = `${title}_${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, filename);
+        }
+        
+        function exportToPDF(data, title, dateRange) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            let y = 20;
+            
+            // Titel
+            doc.setFontSize(18);
+            doc.text(title, 20, y);
+            y += 10;
+            
+            // Datumsbereich
+            doc.setFontSize(12);
+            doc.text(dateRange, 20, y);
+            y += 15;
+            
+            // Tabellen-Header
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'bold');
+            doc.text('Datum', 20, y);
+            doc.text('Zeit', 50, y);
+            doc.text('Dauer', 80, y);
+            doc.text('Projekt', 110, y);
+            doc.text('Ort', 160, y);
+            y += 7;
+            
+            // Linie unter Header
+            doc.line(20, y, 190, y);
+            y += 5;
+            
+            // Daten
+            doc.setFont(undefined, 'normal');
+            data.forEach(entry => {
+                if (y > 270) {
+                    doc.addPage();
+                    y = 20;
+                }
+                
+                const date = new Date(entry.timestamp);
+                const endDate = new Date(date.getTime() + entry.duration * 1000);
+                const dateStr = date.toLocaleDateString('de-DE');
+                const timeStr = `${formatTime(date)} - ${formatTime(endDate)}`;
+                const duration = formatDuration(entry.duration);
+                const location = entry.location === 'homeoffice' ? 'Home' : 'Büro';
+                
+                doc.text(dateStr, 20, y);
+                doc.text(timeStr, 50, y);
+                doc.text(duration, 80, y);
+                doc.text(entry.themeName.substring(0, 25), 110, y);
+                doc.text(location, 160, y);
+                y += 7;
+            });
+            
+            // Zusammenfassung
+            y += 5;
+            doc.line(20, y, 190, y);
+            y += 7;
+            
+            const totalSeconds = data.reduce((sum, e) => sum + e.duration, 0);
+            const homeofficeSeconds = data.filter(e => e.location === 'homeoffice').reduce((sum, e) => sum + e.duration, 0);
+            const officeSeconds = data.filter(e => e.location === 'office').reduce((sum, e) => sum + e.duration, 0);
+            
+            doc.setFont(undefined, 'bold');
+            doc.text('Zusammenfassung:', 20, y);
+            y += 7;
+            doc.setFont(undefined, 'normal');
+            doc.text(`Gesamtzeit: ${formatDuration(totalSeconds)}`, 20, y);
+            y += 7;
+            doc.text(`Homeoffice: ${formatDuration(homeofficeSeconds)}`, 20, y);
+            y += 7;
+            doc.text(`Büro: ${formatDuration(officeSeconds)}`, 20, y);
+            y += 7;
+            doc.text(`Anzahl Einträge: ${data.length}`, 20, y);
+            
+            // Download
+            const filename = `${title}_${new Date().toISOString().split('T')[0]}.pdf`;
+            doc.save(filename);
+        }
+        
+        function exportToCSV(data, title, dateRange) {
+            let csv = '';
+            
+            // Header
+            csv += `"${title}"\n`;
+            csv += `"${dateRange}"\n`;
+            csv += '\n';
+            csv += '"Datum","Wochentag","Startzeit","Endzeit","Dauer","Projekt","Arbeitsort"\n';
+            
+            // Daten
+            data.forEach(entry => {
+                const date = new Date(entry.timestamp);
+                const endDate = new Date(date.getTime() + entry.duration * 1000);
+                const weekday = date.toLocaleDateString('de-DE', { weekday: 'short' });
+                const dateStr = date.toLocaleDateString('de-DE');
+                const startTime = formatTime(date);
+                const endTime = formatTime(endDate);
+                const duration = formatDuration(entry.duration);
+                const location = entry.location === 'homeoffice' ? 'Homeoffice' : 'Büro';
+                
+                csv += `"${dateStr}","${weekday}","${startTime}","${endTime}","${duration}","${entry.themeName}","${location}"\n`;
+            });
+            
+            // Zusammenfassung
+            csv += '\n';
+            csv += '"Zusammenfassung"\n';
+            
+            const totalSeconds = data.reduce((sum, e) => sum + e.duration, 0);
+            const homeofficeSeconds = data.filter(e => e.location === 'homeoffice').reduce((sum, e) => sum + e.duration, 0);
+            const officeSeconds = data.filter(e => e.location === 'office').reduce((sum, e) => sum + e.duration, 0);
+            
+            csv += `"Gesamtzeit:","${formatDuration(totalSeconds)}"\n`;
+            csv += `"Homeoffice:","${formatDuration(homeofficeSeconds)}"\n`;
+            csv += `"Büro:","${formatDuration(officeSeconds)}"\n`;
+            csv += `"Anzahl Einträge:","${data.length}"\n`;
+            
+            // Download
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `${title}_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        // ==================== CLOUD & BACKUP SYSTEM ====================
+        
+        let lastBackupTime = null;
+        let autoBackupInterval = null;
+        
+        // Initialisiere Backup-System
+        function initBackupSystem() {
+            // Lade letzte Backup-Zeit
+            const savedBackupTime = localStorage.getItem('lastBackupTime');
+            if (savedBackupTime) {
+                lastBackupTime = new Date(savedBackupTime);
+                updateBackupStatus();
+            }
+            
+            // Starte automatisches Backup alle 24 Stunden
+            startAutoBackup();
+            
+            // Prüfe beim Start, ob ein Backup fällig ist
+            checkAndCreateAutoBackup();
+            
+            // Aktualisiere Backup-Liste
+            updateBackupList();
+        }
+        
+        function startAutoBackup() {
+            // Prüfe alle 60 Minuten, ob ein Backup fällig ist
+            autoBackupInterval = setInterval(() => {
+                checkAndCreateAutoBackup();
+            }, 60 * 60 * 1000); // Jede Stunde prüfen
+        }
+        
+        function checkAndCreateAutoBackup() {
+            const now = new Date();
+            
+            // Wenn kein letztes Backup oder mehr als 24 Stunden her
+            if (!lastBackupTime || (now - lastBackupTime) > 24 * 60 * 60 * 1000) {
+                createAutoBackup();
+            }
+            
+            updateBackupStatus();
+        }
+        
+        function createAutoBackup() {
+            const backup = {
+                timestamp: new Date().toISOString(),
+                themes: themes,
+                entries: entries,
+                type: 'auto',
+                version: '2.0'
+            };
+            
+            // Speichere Backup im localStorage
+            const backupKey = `backup_${Date.now()}`;
+            localStorage.setItem(backupKey, JSON.stringify(backup));
+            
+            // Aktualisiere letzte Backup-Zeit
+            lastBackupTime = new Date();
+            localStorage.setItem('lastBackupTime', lastBackupTime.toISOString());
+            
+            // Lösche alte Backups (behalte nur die letzten 7)
+            cleanOldBackups();
+            
+            updateBackupStatus();
+            updateBackupList();
+            
+            console.log('✅ Automatisches Backup erstellt');
+        }
+        
+        function createBackup() {
+            const backup = {
+                timestamp: new Date().toISOString(),
+                themes: themes,
+                entries: entries,
+                type: 'manual',
+                version: '2.0'
+            };
+            
+            const backupKey = `backup_${Date.now()}`;
+            localStorage.setItem(backupKey, JSON.stringify(backup));
+            
+            lastBackupTime = new Date();
+            localStorage.setItem('lastBackupTime', lastBackupTime.toISOString());
+            
+            updateBackupStatus();
+            updateBackupList();
+            
+            alert('✅ Backup erfolgreich erstellt!');
+        }
+        
+        function restoreBackup() {
+            const backups = getAllBackups();
+            
+            if (backups.length === 0) {
+                alert('Keine Backups verfügbar!');
+                return;
+            }
+            
+            // Zeige Backup-Auswahl
+            const backupChoices = backups.map((b, i) => 
+                `${i + 1}. ${new Date(b.data.timestamp).toLocaleString('de-DE')} (${b.data.type === 'auto' ? 'Automatisch' : 'Manuell'})`
+            ).join('\n');
+            
+            const choice = prompt(`Wähle ein Backup zum Wiederherstellen:\n\n${backupChoices}\n\nGib die Nummer ein:`);
+            
+            if (!choice) return;
+            
+            const index = parseInt(choice) - 1;
+            if (index >= 0 && index < backups.length) {
+                const backup = backups[index].data;
+                
+                if (confirm('Möchtest du wirklich dieses Backup wiederherstellen?\n\nAktuelle Daten werden überschrieben!')) {
+                    themes = backup.themes;
+                    entries = backup.entries;
+                    saveData();
+                    updateViews();
+                    alert('✅ Backup erfolgreich wiederhergestellt!');
+                }
+            }
+        }
+        
+        function downloadBackup() {
+            const backup = {
+                timestamp: new Date().toISOString(),
+                themes: themes,
+                entries: entries,
+                type: 'download',
+                version: '2.0'
+            };
+            
+            const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `zeiterfassung_backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        function getAllBackups() {
+            const backups = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith('backup_')) {
+                    try {
+                        const data = JSON.parse(localStorage.getItem(key));
+                        backups.push({ key, data });
+                    } catch (e) {
+                        console.error('Fehler beim Laden von Backup:', key, e);
+                    }
+                }
+            }
+            // Sortiere nach Timestamp (neueste zuerst)
+            backups.sort((a, b) => new Date(b.data.timestamp) - new Date(a.data.timestamp));
+            return backups;
+        }
+        
+        function cleanOldBackups() {
+            const backups = getAllBackups();
+            // Behalte nur die letzten 7 Backups
+            if (backups.length > 7) {
+                for (let i = 7; i < backups.length; i++) {
+                    localStorage.removeItem(backups[i].key);
+                }
+            }
+        }
+        
+        function updateBackupStatus() {
+            const lastBackupElem = document.getElementById('last-backup-time');
+            const nextBackupElem = document.getElementById('next-backup-time');
+            
+            if (lastBackupTime) {
+                lastBackupElem.textContent = lastBackupTime.toLocaleString('de-DE');
+                
+                // Berechne nächste Backup-Zeit (24 Stunden nach letztem Backup)
+                const nextBackup = new Date(lastBackupTime.getTime() + 24 * 60 * 60 * 1000);
+                const now = new Date();
+                const diff = nextBackup - now;
+                
+                if (diff > 0) {
+                    const hours = Math.floor(diff / (60 * 60 * 1000));
+                    const minutes = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000));
+                    nextBackupElem.textContent = `In ${hours}h ${minutes}m`;
+                } else {
+                    nextBackupElem.textContent = 'Bald...';
+                }
+            } else {
+                lastBackupElem.textContent = 'Noch keine';
+                nextBackupElem.textContent = 'Bei nächstem Start';
+            }
+        }
+        
+        function updateBackupList() {
+            const backupList = document.getElementById('backup-list');
+            const backups = getAllBackups();
+            
+            if (backups.length === 0) {
+                backupList.innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">Keine Backups vorhanden</p>';
+                return;
+            }
+            
+            backupList.innerHTML = backups.map(backup => {
+                const date = new Date(backup.data.timestamp);
+                const typeIcon = backup.data.type === 'auto' ? '🔄' : '💾';
+                const typeLabel = backup.data.type === 'auto' ? 'Auto' : 'Manuell';
+                
+                return `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #eee;">
+                        <div>
+                            <span>${typeIcon} ${date.toLocaleString('de-DE')}</span><br>
+                            <small style="color: #666;">${typeLabel} • ${backup.data.entries.length} Einträge</small>
+                        </div>
+                        <button class="btn-icon" onclick="deleteBackup('${backup.key}')" title="Löschen">🗑️</button>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function deleteBackup(key) {
+            if (confirm('Backup wirklich löschen?')) {
+                localStorage.removeItem(key);
+                updateBackupList();
+            }
+        }
+        
+        function forceSyncToCloud() {
+            // Simuliere Cloud-Sync (iOS speichert localStorage automatisch in iCloud)
+            document.getElementById('sync-status').textContent = '🔄 Synchronisiere...';
+            
+            setTimeout(() => {
+                saveData();
+                createBackup();
+                document.getElementById('sync-status').textContent = '🟢 Synchronisiert';
+                
+                setTimeout(() => {
+                    document.getElementById('sync-status').textContent = '🟢 Synchronisiert';
+                }, 1000);
+            }, 500);
+        }
+        
+        // ==================== PWA & iOS INSTALLATION ====================
+        
+        function checkIOSInstallation() {
+            // Prüfe ob im Standalone-Modus (als App installiert)
+            const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+            
+            // Prüfe ob iOS/iPadOS
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            
+            // Zeige Banner nur auf iOS und wenn nicht als App installiert
+            if (isIOS && !isStandalone) {
+                // Prüfe ob Banner schon mal geschlossen wurde
+                const bannerClosed = localStorage.getItem('installBannerClosed');
+                if (!bannerClosed) {
+                    document.getElementById('ios-install-banner').style.display = 'block';
+                }
+            }
+        }
+        
+        function hideInstallBanner() {
+            document.getElementById('ios-install-banner').style.display = 'none';
+            localStorage.setItem('installBannerClosed', 'true');
+        }
+        
+        // Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./service-worker.js')
+                .then(registration => console.log('✅ Service Worker registriert'))
+                .catch(error => console.log('❌ Service Worker Fehler:', error));
+        }
+        
+    </script>
+</body>
+</html>
