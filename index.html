@@ -1,0 +1,2659 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#667eea">
+    <link rel="manifest" href="./manifest.json">
+    <title>⏱️ Zeiterfassung Pro</title>
+    
+    <!-- External Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    
+    <!-- Firebase SDK (Compat Version - stabiler) -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            padding-bottom: 100px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 28px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+
+        .timer-display {
+            text-align: center;
+            font-size: 48px;
+            font-weight: bold;
+            color: #667eea;
+            margin: 20px 0;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 8px 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #757f9a 0%, #d7dde8 100%);
+            color: #333;
+        }
+
+        .btn-small {
+            padding: 8px 15px;
+            font-size: 14px;
+            width: auto;
+            display: inline-block;
+        }
+
+        .location-toggle {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .location-btn {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .location-btn.active {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .project-select, .form-select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 12px;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+
+        .status {
+            text-align: center;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-weight: 600;
+        }
+
+        .status.idle {
+            background: #f0f0f0;
+            color: #666;
+        }
+
+        .status.running {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .entry {
+            padding: 15px;
+            border-left: 4px solid #667eea;
+            background: #f8f9fa;
+            margin: 10px 0;
+            border-radius: 8px;
+        }
+
+        .entry-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .entry-project {
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .entry-duration {
+            font-weight: bold;
+            color: #155724;
+        }
+
+        .entry-details {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+
+        .project-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-left: 4px solid;
+            background: #f8f9fa;
+            margin: 10px 0;
+            border-radius: 8px;
+        }
+
+        .project-name {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .project-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            display: flex;
+            justify-content: space-around;
+            padding: 12px 0;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+
+        .nav-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            padding: 8px 16px;
+            cursor: pointer;
+            opacity: 0.5;
+            transition: all 0.3s;
+        }
+
+        .nav-btn.active {
+            opacity: 1;
+            transform: scale(1.2);
+        }
+
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            width: 100%;
+            max-width: 400px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            color: #667eea;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 12px;
+            font-size: 16px;
+        }
+
+        .form-input:focus {
+            border-color: #667eea;
+            outline: none;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn-group .btn {
+            flex: 1;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .danger {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .time-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .export-options {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin: 20px 0;
+        }
+
+        /* Cloud Sync Status */
+        .sync-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .sync-status.synced {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .sync-status.syncing {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .sync-status.offline {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .sync-status.not-logged-in {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+
+        .sync-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .sync-status.synced .sync-indicator {
+            background: #28a745;
+        }
+
+        .sync-status.syncing .sync-indicator {
+            background: #ffc107;
+        }
+
+        .sync-status.offline .sync-indicator {
+            background: #dc3545;
+        }
+
+        .sync-status.not-logged-in .sync-indicator {
+            background: #6c757d;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Auth Page Styling */
+        .auth-container {
+            text-align: center;
+        }
+
+        .auth-tabs {
+            display: flex;
+            margin-bottom: 20px;
+        }
+
+        .auth-tab {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            background: #f0f0f0;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .auth-tab:first-child {
+            border-radius: 12px 0 0 12px;
+        }
+
+        .auth-tab:last-child {
+            border-radius: 0 12px 12px 0;
+        }
+
+        .auth-tab.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .auth-form {
+            display: none;
+        }
+
+        .auth-form.active {
+            display: block;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            margin-bottom: 15px;
+        }
+
+        .user-email {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 20px 0;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #ddd;
+        }
+
+        .divider span {
+            padding: 0 15px;
+            color: #999;
+            font-size: 14px;
+        }
+
+        /* Homeoffice/Office Statistik Karten */
+        .location-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .location-stat-card {
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            color: white;
+        }
+
+        .location-stat-card.homeoffice {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+
+        .location-stat-card.office {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .location-stat-percent {
+            font-size: 36px;
+            font-weight: bold;
+        }
+
+        .location-stat-hours {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+
+        .location-stat-label {
+            font-size: 14px;
+            margin-top: 10px;
+            font-weight: 600;
+        }
+
+        /* Custom Date Range */
+        .custom-date-range {
+            display: none;
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 12px;
+        }
+
+        .custom-date-range.show {
+            display: block;
+        }
+
+        .date-range-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .time-inputs {
+                grid-template-columns: 1fr;
+            }
+
+            .export-options {
+                grid-template-columns: 1fr;
+            }
+
+            .location-stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .date-range-inputs {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⏱️ Zeiterfassung Pro</h1>
+
+        <!-- SYNC STATUS -->
+        <div id="syncStatus" class="sync-status not-logged-in">
+            <div class="sync-indicator"></div>
+            <span id="syncText">Initialisiere...</span>
+        </div>
+
+        <!-- AUTH PAGE -->
+        <div id="authPage" class="page">
+            <div class="card auth-container">
+                <h2>🔐 Anmeldung</h2>
+                <p style="color: #666; margin-bottom: 20px;">
+                    Melde dich an, um deine Daten auf allen Geräten zu synchronisieren.
+                </p>
+
+                <div class="auth-tabs">
+                    <button class="auth-tab active" onclick="showAuthTab('login')">Anmelden</button>
+                    <button class="auth-tab" onclick="showAuthTab('register')">Registrieren</button>
+                </div>
+
+                <!-- Login Form -->
+                <div id="loginForm" class="auth-form active">
+                    <div class="form-group">
+                        <label class="form-label">📧 E-Mail</label>
+                        <input type="email" id="loginEmail" class="form-input" placeholder="deine@email.de">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">🔑 Passwort</label>
+                        <input type="password" id="loginPassword" class="form-input" placeholder="Dein Passwort">
+                    </div>
+
+                    <button class="btn btn-primary" onclick="loginWithPassword()">
+                        🔓 Anmelden
+                    </button>
+                </div>
+
+                <!-- Register Form -->
+                <div id="registerForm" class="auth-form">
+                    <div class="form-group">
+                        <label class="form-label">📧 E-Mail</label>
+                        <input type="email" id="registerEmail" class="form-input" placeholder="deine@email.de">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">🔑 Passwort</label>
+                        <input type="password" id="registerPassword" class="form-input" placeholder="Neues Passwort (min. 6 Zeichen)">
+                    </div>
+
+                    <button class="btn btn-primary" onclick="registerWithPassword()">
+                        📝 Registrieren
+                    </button>
+                </div>
+
+                <div id="authMessage" style="margin-top: 15px;"></div>
+            </div>
+
+            <!-- Offline-Modus Option -->
+            <div class="card">
+                <h2>📴 Offline-Modus</h2>
+                <p style="color: #666; margin-bottom: 15px;">
+                    Du kannst die App auch ohne Anmeldung nutzen. Deine Daten werden dann nur lokal gespeichert.
+                </p>
+                <button class="btn btn-secondary" onclick="useOfflineMode()">
+                    Ohne Anmeldung fortfahren
+                </button>
+            </div>
+        </div>
+
+        <!-- TIMER PAGE -->
+        <div id="timerPage" class="page">
+            <div class="card">
+                <h2>⏱️ Timer</h2>
+                
+                <div id="status" class="status idle">
+                    Bereit zum Starten
+                </div>
+
+                <div class="timer-display" id="timerDisplay">00:00:00</div>
+
+                <select id="projectSelect" class="project-select">
+                    <option value="">Projekt wählen...</option>
+                </select>
+
+                <div class="location-toggle">
+                    <button class="location-btn active" data-location="office" onclick="selectLocation('office')">
+                        🏢 Büro
+                    </button>
+                    <button class="location-btn" data-location="homeoffice" onclick="selectLocation('homeoffice')">
+                        🏠 Homeoffice
+                    </button>
+                </div>
+
+                <button id="startBtn" class="btn btn-success" onclick="startTimer()">
+                    ▶️ Starten
+                </button>
+                <button id="stopBtn" class="btn btn-danger" onclick="stopTimer()" style="display:none;">
+                    ⏹️ Stoppen
+                </button>
+                
+                <!-- Timer-Schutz Hinweis -->
+                <div style="margin-top: 15px; padding: 10px; background: #e8f5e9; border-radius: 8px; font-size: 12px; color: #2e7d32; text-align: center;">
+                    🛡️ Timer-Schutz aktiv: Der Timer läuft auch nach App-Schließung weiter
+                </div>
+            </div>
+
+            <div class="card">
+                <button class="btn btn-primary" onclick="openManualEntryModal()">
+                    ✏️ Manuellen Eintrag erstellen
+                </button>
+            </div>
+        </div>
+
+        <!-- HISTORY PAGE -->
+        <div id="historyPage" class="page">
+            <div class="card">
+                <h2>📋 Verlauf</h2>
+                <div id="entriesList"></div>
+            </div>
+        </div>
+
+        <!-- DASHBOARD PAGE -->
+        <div id="dashboardPage" class="page">
+            <div class="card">
+                <h2>📊 Dashboard</h2>
+                <div class="stats-grid" id="dashboardStats"></div>
+                
+                <div class="chart-container">
+                    <canvas id="weekChart"></canvas>
+                </div>
+
+                <h3 style="margin-top: 30px; color: #667eea;">Projekt-Verteilung</h3>
+                <div class="chart-container" style="height: 250px;">
+                    <canvas id="projectPieChart"></canvas>
+                </div>
+
+                <h3 style="margin-top: 30px; color: #667eea;">🏠 Homeoffice vs. 🏢 Büro</h3>
+                <div id="locationStatsDisplay" class="location-stats-grid"></div>
+                <div class="chart-container" style="height: 250px;">
+                    <canvas id="locationPieChart"></canvas>
+                </div>
+
+                <h3 style="margin-top: 30px; color: #667eea;">Projekte Übersicht</h3>
+                <div id="projectStats"></div>
+            </div>
+        </div>
+
+        <!-- PROJECTS PAGE -->
+        <div id="projectsPage" class="page">
+            <div class="card">
+                <h2>📁 Projekte</h2>
+                <button class="btn btn-primary" onclick="openProjectModal()">
+                    ➕ Neues Projekt
+                </button>
+                <div id="projectsList"></div>
+            </div>
+        </div>
+
+        <!-- EXPORT PAGE -->
+        <div id="exportPage" class="page">
+            <div class="card">
+                <h2>📤 Export</h2>
+                
+                <div class="form-group">
+                    <label class="form-label">Zeitraum wählen:</label>
+                    <select id="exportRange" class="form-select" onchange="toggleCustomDateRange()">
+                        <option value="today">Heute</option>
+                        <option value="week">Diese Woche</option>
+                        <option value="month">Dieser Monat</option>
+                        <option value="all">Alle Einträge</option>
+                        <option value="custom">Benutzerdefiniert...</option>
+                    </select>
+                </div>
+
+                <!-- Benutzerdefinierter Zeitraum -->
+                <div id="customDateRange" class="custom-date-range">
+                    <div class="form-label" style="margin-bottom: 10px;">📅 Zeitraum auswählen:</div>
+                    <div class="date-range-inputs">
+                        <div>
+                            <label class="form-label" style="font-size: 14px;">Von</label>
+                            <input type="date" id="exportDateFrom" class="form-input">
+                        </div>
+                        <div>
+                            <label class="form-label" style="font-size: 14px;">Bis</label>
+                            <input type="date" id="exportDateTo" class="form-input">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="export-options">
+                    <button class="btn btn-success" onclick="exportAs('xlsx')">
+                        📊 Excel (XLSX)
+                    </button>
+                    <button class="btn btn-danger" onclick="exportAs('pdf')">
+                        📄 PDF
+                    </button>
+                    <button class="btn btn-primary" onclick="exportAs('csv')">
+                        📋 CSV
+                    </button>
+                    <button class="btn btn-secondary" onclick="exportAs('json')">
+                        💾 JSON Backup
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- SETTINGS PAGE -->
+        <div id="settingsPage" class="page">
+            <div class="card">
+                <h2>⚙️ Einstellungen</h2>
+                
+                <!-- Benutzer-Info (nur wenn eingeloggt) -->
+                <div id="userInfoSection" style="display: none;">
+                    <h3 style="color: #667eea; margin-bottom: 15px;">👤 Konto</h3>
+                    <div class="user-info">
+                        <span id="userEmailDisplay" class="user-email">-</span>
+                        <button class="btn btn-small btn-danger" onclick="logoutUser()">
+                            🚪 Abmelden
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Login-Button (nur wenn nicht eingeloggt) -->
+                <div id="loginSection">
+                    <button class="btn btn-primary" onclick="showAuthPage()">
+                        🔐 Anmelden für Cloud-Sync
+                    </button>
+                </div>
+                
+                <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
+                
+                <button class="btn btn-secondary" onclick="importData()">
+                    📥 Daten importieren
+                </button>
+                
+                <button class="btn btn-danger" onclick="clearAllData()">
+                    🗑️ Alle Daten löschen
+                </button>
+
+                <input type="file" id="importFile" accept=".json" style="display:none;" onchange="handleImport(event)">
+            </div>
+        </div>
+    </div>
+
+    <!-- MANUAL ENTRY MODAL -->
+    <div id="manualEntryModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">✏️ Manueller Zeiteintrag</h3>
+                <button class="close-btn" onclick="closeManualEntryModal()">×</button>
+            </div>
+
+            <div id="modalMessage"></div>
+
+            <form onsubmit="saveManualEntry(event)">
+                <div class="form-group">
+                    <label class="form-label">📅 Datum</label>
+                    <input type="date" id="manualDate" class="form-input" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">⏰ Zeitraum</label>
+                    <div class="time-inputs">
+                        <div>
+                            <label class="form-label" style="font-size: 14px;">Start</label>
+                            <input type="time" id="manualStartTime" class="form-input" required>
+                        </div>
+                        <div>
+                            <label class="form-label" style="font-size: 14px;">Ende</label>
+                            <input type="time" id="manualEndTime" class="form-input" required>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">📁 Projekt</label>
+                    <select id="manualProject" class="form-input" required>
+                        <option value="">Projekt wählen...</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">📍 Arbeitsort</label>
+                    <div class="location-toggle">
+                        <button type="button" class="location-btn active" data-location="office" 
+                                onclick="selectManualLocation('office')">
+                            🏢 Büro
+                        </button>
+                        <button type="button" class="location-btn" data-location="homeoffice" 
+                                onclick="selectManualLocation('homeoffice')">
+                            🏠 Homeoffice
+                        </button>
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn-secondary" onclick="closeManualEntryModal()">
+                        Abbrechen
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        💾 Speichern
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- PROJECT MODAL (Neues Projekt) -->
+    <div id="projectModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">📁 Neues Projekt</h3>
+                <button class="close-btn" onclick="closeProjectModal()">×</button>
+            </div>
+
+            <form onsubmit="saveProject(event)">
+                <div class="form-group">
+                    <label class="form-label">Projektname</label>
+                    <input type="text" id="projectName" class="form-input" placeholder="z.B. Projektarbeit" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Farbe</label>
+                    <input type="color" id="projectColor" class="form-input" value="#667eea">
+                </div>
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn-secondary" onclick="closeProjectModal()">
+                        Abbrechen
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        💾 Speichern
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- EDIT PROJECT MODAL (Projekt bearbeiten) -->
+    <div id="editProjectModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">✏️ Projekt bearbeiten</h3>
+                <button class="close-btn" onclick="closeEditProjectModal()">×</button>
+            </div>
+
+            <form onsubmit="updateProject(event)">
+                <div class="form-group">
+                    <label class="form-label">Projektname</label>
+                    <input type="text" id="editProjectName" class="form-input" placeholder="z.B. Projektarbeit" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Farbe</label>
+                    <input type="color" id="editProjectColor" class="form-input" value="#667eea">
+                </div>
+
+                <input type="hidden" id="editProjectId">
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn-secondary" onclick="closeEditProjectModal()">
+                        Abbrechen
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        💾 Speichern
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- EDIT ENTRY MODAL -->
+    <div id="editEntryModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">✏️ Eintrag bearbeiten</h3>
+                <button class="close-btn" onclick="closeEditEntryModal()">×</button>
+            </div>
+
+            <form onsubmit="updateEntry(event)">
+                <div class="form-group">
+                    <label class="form-label">📅 Datum</label>
+                    <input type="date" id="editDate" class="form-input" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">⏰ Zeitraum</label>
+                    <div class="time-inputs">
+                        <div>
+                            <label class="form-label" style="font-size: 14px;">Start</label>
+                            <input type="time" id="editStartTime" class="form-input" required>
+                        </div>
+                        <div>
+                            <label class="form-label" style="font-size: 14px;">Ende</label>
+                            <input type="time" id="editEndTime" class="form-input" required>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">📁 Projekt</label>
+                    <select id="editProject" class="form-input" required>
+                        <option value="">Projekt wählen...</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">📍 Arbeitsort</label>
+                    <div class="location-toggle">
+                        <button type="button" class="location-btn" data-location="office" 
+                                onclick="selectEditLocation('office')">
+                            🏢 Büro
+                        </button>
+                        <button type="button" class="location-btn" data-location="homeoffice" 
+                                onclick="selectEditLocation('homeoffice')">
+                            🏠 Homeoffice
+                        </button>
+                    </div>
+                </div>
+
+                <input type="hidden" id="editEntryId">
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn-secondary" onclick="closeEditEntryModal()">
+                        Abbrechen
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        💾 Speichern
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- NAVIGATION -->
+    <div class="nav">
+        <button class="nav-btn active" onclick="showPage('timer')">⏱️</button>
+        <button class="nav-btn" onclick="showPage('history')">📋</button>
+        <button class="nav-btn" onclick="showPage('dashboard')">📊</button>
+        <button class="nav-btn" onclick="showPage('projects')">📁</button>
+        <button class="nav-btn" onclick="showPage('export')">📤</button>
+        <button class="nav-btn" onclick="showPage('settings')">⚙️</button>
+    </div>
+
+    <script>
+        // ========================================
+        // FIREBASE KONFIGURATION - HIER EINTRAGEN!
+        // ========================================
+        const firebaseConfig = {
+  apiKey: "AIzaSyDPsocdgteS-Pl-DwrWoLWkOYIEy5kzh3o",
+  authDomain: "zeiterfassung-pro-88b0c.firebaseapp.com",
+  projectId: "zeiterfassung-pro-88b0c",
+  storageBucket: "zeiterfassung-pro-88b0c.firebasestorage.app",
+  messagingSenderId: "794469654080",
+  appId: "1:794469654080:web:faec40dacad0d831d289a5"
+};
+        // ========================================
+
+        // Firebase initialisieren
+        let app, auth, db;
+        try {
+            app = firebase.initializeApp(firebaseConfig);
+            auth = firebase.auth();
+            db = firebase.firestore();
+            console.log('✅ Firebase initialisiert');
+        } catch (error) {
+            console.error('❌ Firebase Fehler:', error);
+        }
+
+        // ========================================
+        // DATA STRUCTURES
+        // ========================================
+        
+        let projects = [
+            { id: 1, name: 'Personalratsarbeit', color: '#667eea' },
+            { id: 2, name: 'ÖPR-Sitzung', color: '#11998e' },
+            { id: 3, name: 'GPR-Sitzung', color: '#38ef7d' },
+            { id: 4, name: 'Daily', color: '#f093fb' },
+            { id: 5, name: 'JourFixe TuG', color: '#4facfe' },
+            { id: 6, name: 'JourFixe DS/ITS', color: '#43e97b' },
+            { id: 7, name: 'Reisezeit', color: '#fa709a' },
+            { id: 8, name: 'DIB-Termin', color: '#feca57' },
+            { id: 9, name: 'Sprechstunde', color: '#ff6b6b' },
+            { id: 10, name: 'ARD-Projekte', color: '#764ba2' }
+        ];
+
+        let entries = [];
+        let activeTimer = null;
+        let timerInterval = null;
+        let currentLocation = 'office';
+        let manualLocation = 'office';
+        let weekChart = null;
+        let projectPieChart = null;
+        let locationPieChart = null;
+
+        // Cloud-Sync Variablen
+        let currentUser = null;
+        let isOfflineMode = false;
+        let unsubscribeSnapshot = null;
+        let isSyncing = false;
+
+        // ========================================
+        // TIMER PERSISTENZ (NEU)
+        // Verhindert Datenverlust bei App-Schließung
+        // ========================================
+
+        function saveActiveTimer() {
+            if (activeTimer) {
+                const timerData = {
+                    projectId: activeTimer.projectId,
+                    location: activeTimer.location,
+                    startTime: activeTimer.startTime.toISOString(),
+                    savedAt: new Date().toISOString()
+                };
+                localStorage.setItem('activeTimerData', JSON.stringify(timerData));
+                console.log('💾 Timer gespeichert:', timerData);
+            }
+        }
+
+        function clearSavedTimer() {
+            localStorage.removeItem('activeTimerData');
+            console.log('🗑️ Gespeicherter Timer gelöscht');
+        }
+
+        function loadAndRestoreTimer() {
+            const savedTimer = localStorage.getItem('activeTimerData');
+            if (!savedTimer) return false;
+
+            try {
+                const timerData = JSON.parse(savedTimer);
+                const startTime = new Date(timerData.startTime);
+                const now = new Date();
+                const elapsedMs = now - startTime;
+                
+                // Prüfen ob der Timer nicht älter als 24 Stunden ist
+                if (elapsedMs > 24 * 60 * 60 * 1000) {
+                    console.log('⏰ Gespeicherter Timer ist älter als 24h, wird verworfen');
+                    clearSavedTimer();
+                    return false;
+                }
+
+                // Timer wiederherstellen
+                activeTimer = {
+                    projectId: timerData.projectId,
+                    location: timerData.location,
+                    startTime: startTime,
+                    elapsed: Math.floor(elapsedMs / 1000)
+                };
+
+                // UI aktualisieren
+                document.getElementById('projectSelect').value = timerData.projectId;
+                selectLocation(timerData.location);
+                
+                document.getElementById('startBtn').style.display = 'none';
+                document.getElementById('stopBtn').style.display = 'block';
+                document.getElementById('status').className = 'status running';
+                document.getElementById('status').textContent = '⏱️ Timer wiederhergestellt!';
+
+                timerInterval = setInterval(updateTimerDisplay, 100);
+                
+                const project = projects.find(p => p.id === timerData.projectId);
+                const projectName = project ? project.name : 'Unbekannt';
+                const elapsedMin = Math.floor(elapsedMs / 60000);
+                
+                showMessage(`🔄 Timer wiederhergestellt: ${projectName} (${elapsedMin} Min. gelaufen)`, 'success');
+                console.log('✅ Timer wiederhergestellt:', timerData);
+                
+                return true;
+            } catch (error) {
+                console.error('❌ Fehler beim Wiederherstellen des Timers:', error);
+                clearSavedTimer();
+                return false;
+            }
+        }
+
+        // Event-Listener für App-Schließung/Hintergrund
+        function setupTimerPersistence() {
+            // Beim Verlassen der Seite (Desktop)
+            window.addEventListener('beforeunload', (e) => {
+                if (activeTimer) {
+                    saveActiveTimer();
+                    // Warnung anzeigen (funktioniert auf Desktop)
+                    e.preventDefault();
+                    e.returnValue = '⚠️ Ein Timer läuft noch! Wirklich schließen?';
+                    return e.returnValue;
+                }
+            });
+
+            // Beim Wechsel in den Hintergrund (iOS/Mobile)
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'hidden' && activeTimer) {
+                    saveActiveTimer();
+                    console.log('📱 App in Hintergrund - Timer gespeichert');
+                } else if (document.visibilityState === 'visible' && activeTimer) {
+                    // Timer-Anzeige aktualisieren wenn App wieder sichtbar
+                    updateTimerDisplay();
+                    console.log('📱 App wieder sichtbar - Timer läuft weiter');
+                }
+            });
+
+            // Für iOS: pagehide Event
+            window.addEventListener('pagehide', () => {
+                if (activeTimer) {
+                    saveActiveTimer();
+                    console.log('📱 Seite wird verlassen - Timer gespeichert');
+                }
+            });
+
+            // Periodisches Speichern alle 30 Sekunden (Sicherheit)
+            setInterval(() => {
+                if (activeTimer) {
+                    saveActiveTimer();
+                }
+            }, 30000);
+        }
+
+        // ========================================
+        // CLOUD SYNC FUNCTIONS
+        // ========================================
+
+        function updateSyncStatus(status, text) {
+            const statusEl = document.getElementById('syncStatus');
+            const textEl = document.getElementById('syncText');
+            statusEl.className = 'sync-status ' + status;
+            textEl.textContent = text;
+        }
+
+        async function saveToCloud() {
+            if (!currentUser || isOfflineMode) {
+                saveToLocal();
+                return;
+            }
+
+            try {
+                isSyncing = true;
+                updateSyncStatus('syncing', 'Synchronisiere...');
+
+                await db.collection('users').doc(currentUser.uid).set({
+                    entries: entries,
+                    projects: projects,
+                    lastSaved: new Date().toISOString(),
+                    deviceInfo: navigator.userAgent
+                });
+
+                updateSyncStatus('synced', 'Synchronisiert ✓');
+                console.log('✅ Daten in Cloud gespeichert:', entries.length, 'Einträge');
+            } catch (error) {
+                console.error('❌ Cloud-Speicherfehler:', error);
+                updateSyncStatus('offline', 'Sync-Fehler');
+                saveToLocal();
+            } finally {
+                isSyncing = false;
+            }
+        }
+
+        async function loadFromCloud() {
+            if (!currentUser || isOfflineMode) {
+                loadFromLocal();
+                return;
+            }
+
+            try {
+                updateSyncStatus('syncing', 'Lade Daten...');
+
+                const doc = await db.collection('users').doc(currentUser.uid).get();
+
+                if (doc.exists) {
+                    const data = doc.data();
+                    entries = data.entries || [];
+                    projects = data.projects || projects;
+                    console.log('✅ Daten aus Cloud geladen:', entries.length, 'Einträge');
+                } else {
+                    // Erste Anmeldung - prüfen ob lokale Daten vorhanden
+                    const localData = localStorage.getItem('timeTrackingData');
+                    if (localData) {
+                        const parsed = JSON.parse(localData);
+                        if (parsed.entries && parsed.entries.length > 0) {
+                            if (confirm('📤 Es wurden lokale Daten gefunden.\n\nMöchtest du diese in die Cloud hochladen?')) {
+                                entries = parsed.entries;
+                                projects = parsed.projects || projects;
+                                await saveToCloud();
+                                showMessage('✅ Lokale Daten wurden in die Cloud übertragen!', 'success');
+                            }
+                        }
+                    }
+                }
+
+                // Echtzeit-Listener einrichten
+                setupRealtimeSync();
+                
+                updateSyncStatus('synced', 'Synchronisiert ✓');
+            } catch (error) {
+                console.error('❌ Cloud-Ladefehler:', error);
+                updateSyncStatus('offline', 'Offline');
+                loadFromLocal();
+            }
+        }
+
+        function setupRealtimeSync() {
+            if (unsubscribeSnapshot) {
+                unsubscribeSnapshot();
+            }
+
+            if (!currentUser || isOfflineMode) return;
+
+            unsubscribeSnapshot = db.collection('users').doc(currentUser.uid)
+                .onSnapshot((doc) => {
+                    if (doc.exists && !isSyncing) {
+                        const data = doc.data();
+                        entries = data.entries || [];
+                        projects = data.projects || projects;
+                        
+                        // UI aktualisieren
+                        populateProjectSelects();
+                        renderHistory();
+                        renderDashboard();
+                        renderProjectsList();
+                        
+                        updateSyncStatus('synced', 'Synchronisiert ✓');
+                        console.log('🔄 Echtzeit-Update empfangen:', entries.length, 'Einträge');
+                    }
+                }, (error) => {
+                    console.error('❌ Echtzeit-Sync Fehler:', error);
+                    updateSyncStatus('offline', 'Verbindungsfehler');
+                });
+        }
+
+        function saveToLocal() {
+            localStorage.setItem('timeTrackingData', JSON.stringify({
+                entries,
+                projects,
+                lastSaved: new Date().toISOString()
+            }));
+            if (isOfflineMode) {
+                updateSyncStatus('offline', 'Lokal gespeichert');
+            }
+        }
+
+        function loadFromLocal() {
+            const saved = localStorage.getItem('timeTrackingData');
+            if (saved) {
+                const data = JSON.parse(saved);
+                entries = data.entries || [];
+                projects = data.projects || projects;
+            }
+        }
+
+        // Wrapper-Funktion für Speichern
+        function saveData() {
+            if (currentUser && !isOfflineMode) {
+                saveToCloud();
+            } else {
+                saveToLocal();
+            }
+        }
+
+        // Wrapper-Funktion für Laden
+        function loadData() {
+            if (currentUser && !isOfflineMode) {
+                loadFromCloud();
+            } else {
+                loadFromLocal();
+            }
+        }
+
+        // ========================================
+        // AUTHENTICATION FUNCTIONS
+        // ========================================
+
+        function showAuthTab(tab) {
+            document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+            
+            document.querySelector(`.auth-tab:${tab === 'login' ? 'first-child' : 'last-child'}`).classList.add('active');
+            document.getElementById(tab === 'login' ? 'loginForm' : 'registerForm').classList.add('active');
+        }
+
+        async function loginWithPassword() {
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+
+            if (!email || !password) {
+                showAuthMessage('❌ Bitte E-Mail und Passwort eingeben', 'danger');
+                return;
+            }
+
+            try {
+                showAuthMessage('🔄 Anmelden...', 'warning');
+                await auth.signInWithEmailAndPassword(email, password);
+                showAuthMessage('✅ Erfolgreich angemeldet!', 'success');
+            } catch (error) {
+                console.error('Login Fehler:', error);
+                if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
+                    showAuthMessage('❌ E-Mail oder Passwort falsch', 'danger');
+                } else if (error.code === 'auth/user-not-found') {
+                    showAuthMessage('❌ Kein Konto mit dieser E-Mail gefunden', 'danger');
+                } else {
+                    showAuthMessage('❌ Fehler: ' + error.message, 'danger');
+                }
+            }
+        }
+
+        async function registerWithPassword() {
+            const email = document.getElementById('registerEmail').value.trim();
+            const password = document.getElementById('registerPassword').value;
+
+            if (!email || !password) {
+                showAuthMessage('❌ Bitte E-Mail und Passwort eingeben', 'danger');
+                return;
+            }
+
+            if (password.length < 6) {
+                showAuthMessage('❌ Passwort muss mindestens 6 Zeichen haben', 'danger');
+                return;
+            }
+
+            try {
+                showAuthMessage('🔄 Registrieren...', 'warning');
+                await auth.createUserWithEmailAndPassword(email, password);
+                showAuthMessage('✅ Konto erstellt und angemeldet!', 'success');
+            } catch (error) {
+                console.error('Registrierung Fehler:', error);
+                if (error.code === 'auth/email-already-in-use') {
+                    showAuthMessage('❌ Diese E-Mail ist bereits registriert', 'danger');
+                } else {
+                    showAuthMessage('❌ Fehler: ' + error.message, 'danger');
+                }
+            }
+        }
+
+        async function logoutUser() {
+            if (confirm('Wirklich abmelden?')) {
+                try {
+                    if (unsubscribeSnapshot) {
+                        unsubscribeSnapshot();
+                    }
+                    await auth.signOut();
+                    currentUser = null;
+                    entries = [];
+                    showAuthPage();
+                    showMessage('👋 Erfolgreich abgemeldet', 'success');
+                } catch (error) {
+                    console.error('Logout Fehler:', error);
+                }
+            }
+        }
+
+        function useOfflineMode() {
+            isOfflineMode = true;
+            localStorage.setItem('offlineMode', 'true');
+            currentUser = null;
+            loadFromLocal();
+            updateSyncStatus('offline', 'Offline-Modus');
+            hideAuthPage();
+            populateProjectSelects();
+            setDefaultDate();
+            renderHistory();
+            renderDashboard();
+            renderProjectsList();
+            
+            // Timer wiederherstellen falls vorhanden
+            loadAndRestoreTimer();
+        }
+
+        function showAuthPage() {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById('authPage').classList.add('active');
+            document.querySelector('.nav').style.display = 'none';
+            updateSyncStatus('not-logged-in', 'Nicht angemeldet');
+        }
+
+        function hideAuthPage() {
+            document.getElementById('authPage').classList.remove('active');
+            document.getElementById('timerPage').classList.add('active');
+            document.querySelector('.nav').style.display = 'flex';
+            
+            // UI-Elemente für eingeloggte/ausgeloggte Benutzer
+            if (currentUser) {
+                document.getElementById('userInfoSection').style.display = 'block';
+                document.getElementById('loginSection').style.display = 'none';
+                document.getElementById('userEmailDisplay').textContent = currentUser.email;
+            } else {
+                document.getElementById('userInfoSection').style.display = 'none';
+                document.getElementById('loginSection').style.display = 'block';
+            }
+        }
+
+        function showAuthMessage(message, type) {
+            const el = document.getElementById('authMessage');
+            el.className = type;
+            el.textContent = message;
+            el.style.display = 'block';
+            
+            if (type !== 'warning') {
+                setTimeout(() => {
+                    el.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // ========================================
+        // INITIALIZATION
+        // ========================================
+
+        function init() {
+            console.log('🚀 App wird initialisiert...');
+            
+            // Timer-Persistenz aktivieren
+            setupTimerPersistence();
+            
+            // Prüfen ob Offline-Modus gespeichert war
+            const offlinePref = localStorage.getItem('offlineMode');
+            if (offlinePref === 'true') {
+                useOfflineMode();
+                return;
+            }
+
+            // Auth State Listener
+            auth.onAuthStateChanged(async (user) => {
+                console.log('🔐 Auth Status:', user ? user.email : 'Nicht angemeldet');
+                
+                if (user) {
+                    currentUser = user;
+                    isOfflineMode = false;
+                    localStorage.removeItem('offlineMode');
+                    
+                    await loadFromCloud();
+                    hideAuthPage();
+                    populateProjectSelects();
+                    setDefaultDate();
+                    setDefaultExportDates();
+                    renderHistory();
+                    renderDashboard();
+                    renderProjectsList();
+                    
+                    // Timer wiederherstellen falls vorhanden
+                    loadAndRestoreTimer();
+                } else {
+                    currentUser = null;
+                    if (!isOfflineMode) {
+                        showAuthPage();
+                    }
+                }
+            });
+        }
+
+        function populateProjectSelects() {
+            const selects = [
+                document.getElementById('projectSelect'),
+                document.getElementById('manualProject'),
+                document.getElementById('editProject')
+            ];
+
+            selects.forEach(select => {
+                if (select) {
+                    select.innerHTML = '<option value="">Projekt wählen...</option>';
+                    projects.forEach(project => {
+                        const option = document.createElement('option');
+                        option.value = project.id;
+                        option.textContent = project.name;
+                        select.appendChild(option);
+                    });
+                }
+            });
+        }
+
+        function setDefaultDate() {
+            const today = new Date().toISOString().split('T')[0];
+            const dateInput = document.getElementById('manualDate');
+            if (dateInput) dateInput.value = today;
+        }
+
+        function setDefaultExportDates() {
+            const today = new Date();
+            const monthAgo = new Date(today);
+            monthAgo.setMonth(monthAgo.getMonth() - 1);
+            
+            const fromInput = document.getElementById('exportDateFrom');
+            const toInput = document.getElementById('exportDateTo');
+            
+            if (fromInput) fromInput.value = monthAgo.toISOString().split('T')[0];
+            if (toInput) toInput.value = today.toISOString().split('T')[0];
+        }
+
+        // ========================================
+        // TIMER FUNCTIONS
+        // ========================================
+
+        function startTimer() {
+            const projectId = parseInt(document.getElementById('projectSelect').value);
+            
+            if (!projectId) {
+                showMessage('⚠️ Bitte wähle ein Projekt!', 'warning');
+                return;
+            }
+
+            if (activeTimer) {
+                showMessage('⚠️ Es läuft bereits ein Timer!', 'warning');
+                return;
+            }
+
+            activeTimer = {
+                projectId,
+                location: currentLocation,
+                startTime: new Date(),
+                elapsed: 0
+            };
+
+            // Timer sofort speichern für Persistenz
+            saveActiveTimer();
+
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('stopBtn').style.display = 'block';
+            document.getElementById('status').className = 'status running';
+            document.getElementById('status').textContent = 'Timer läuft...';
+
+            timerInterval = setInterval(updateTimerDisplay, 100);
+        }
+
+        function stopTimer() {
+            if (!activeTimer) return;
+
+            clearInterval(timerInterval);
+            
+            const endTime = new Date();
+            const duration = Math.floor((endTime - activeTimer.startTime) / 1000);
+
+            const entry = {
+                id: Date.now(),
+                projectId: activeTimer.projectId,
+                location: activeTimer.location,
+                startTime: activeTimer.startTime.toISOString(),
+                endTime: endTime.toISOString(),
+                duration,
+                date: new Date().toISOString().split('T')[0],
+                type: 'timer'
+            };
+
+            const conflict = checkTimeConflict(
+                new Date(entry.startTime),
+                new Date(entry.endTime),
+                null
+            );
+
+            if (conflict) {
+                if (!confirm(`⚠️ ZEITKONFLIKT ERKANNT!\n\nDieser Eintrag überschneidet sich mit:\n${conflict.message}\n\nTrotzdem speichern?`)) {
+                    resetTimer();
+                    return;
+                }
+            }
+
+            entries.push(entry);
+            saveData();
+            
+            // Gespeicherten Timer löschen
+            clearSavedTimer();
+            
+            showMessage('✅ Zeiteintrag gespeichert!', 'success');
+            resetTimer();
+            renderHistory();
+            renderDashboard();
+        }
+
+        function resetTimer() {
+            activeTimer = null;
+            clearInterval(timerInterval);
+            
+            // Gespeicherten Timer löschen
+            clearSavedTimer();
+            
+            document.getElementById('timerDisplay').textContent = '00:00:00';
+            document.getElementById('startBtn').style.display = 'block';
+            document.getElementById('stopBtn').style.display = 'none';
+            document.getElementById('status').className = 'status idle';
+            document.getElementById('status').textContent = 'Bereit zum Starten';
+        }
+
+        function updateTimerDisplay() {
+            if (!activeTimer) return;
+            
+            const elapsed = Math.floor((new Date() - activeTimer.startTime) / 1000);
+            const hours = Math.floor(elapsed / 3600);
+            const minutes = Math.floor((elapsed % 3600) / 60);
+            const seconds = elapsed % 60;
+            
+            document.getElementById('timerDisplay').textContent = 
+                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function selectLocation(loc) {
+            currentLocation = loc;
+            document.querySelectorAll('#timerPage .location-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.location === loc);
+            });
+        }
+
+        // ========================================
+        // MANUAL ENTRY FUNCTIONS
+        // ========================================
+
+        function openManualEntryModal() {
+            setDefaultDate();
+            document.getElementById('manualEntryModal').classList.add('show');
+            manualLocation = 'office';
+            document.querySelectorAll('#manualEntryModal .location-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.location === 'office');
+            });
+        }
+
+        function closeManualEntryModal() {
+            document.getElementById('manualEntryModal').classList.remove('show');
+            document.getElementById('manualStartTime').value = '';
+            document.getElementById('manualEndTime').value = '';
+            document.getElementById('manualProject').value = '';
+        }
+
+        function selectManualLocation(loc) {
+            manualLocation = loc;
+            document.querySelectorAll('#manualEntryModal .location-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.location === loc);
+            });
+        }
+
+        function saveManualEntry(event) {
+            event.preventDefault();
+
+            const date = document.getElementById('manualDate').value;
+            const startTimeStr = document.getElementById('manualStartTime').value;
+            const endTimeStr = document.getElementById('manualEndTime').value;
+            const projectId = parseInt(document.getElementById('manualProject').value);
+
+            if (!date || !startTimeStr || !endTimeStr || !projectId) {
+                showModalMessage('❌ Bitte alle Felder ausfüllen!', 'warning');
+                return;
+            }
+
+            const startTime = new Date(`${date}T${startTimeStr}`);
+            const endTime = new Date(`${date}T${endTimeStr}`);
+
+            if (endTime <= startTime) {
+                showModalMessage('❌ Endzeit muss nach Startzeit liegen!', 'warning');
+                return;
+            }
+
+            const conflict = checkTimeConflict(startTime, endTime, null);
+            if (conflict) {
+                if (!confirm(`⚠️ ZEITKONFLIKT ERKANNT!\n\nDieser Eintrag überschneidet sich mit:\n${conflict.message}\n\nTrotzdem speichern?`)) {
+                    return;
+                }
+            }
+
+            const duration = Math.floor((endTime - startTime) / 1000);
+
+            const entry = {
+                id: Date.now(),
+                projectId,
+                location: manualLocation,
+                startTime: startTime.toISOString(),
+                endTime: endTime.toISOString(),
+                duration,
+                date,
+                type: 'manual'
+            };
+
+            entries.push(entry);
+            saveData();
+
+            showMessage('✅ Manueller Eintrag gespeichert!', 'success');
+            closeManualEntryModal();
+            renderHistory();
+            renderDashboard();
+        }
+
+        // ========================================
+        // TIME CONFLICT CHECK
+        // ========================================
+
+        function checkTimeConflict(newStart, newEnd, excludeId) {
+            const newStartTime = newStart.getTime();
+            const newEndTime = newEnd.getTime();
+
+            for (const entry of entries) {
+                if (excludeId && entry.id === excludeId) continue;
+
+                const entryStart = new Date(entry.startTime).getTime();
+                const entryEnd = new Date(entry.endTime).getTime();
+
+                if (newStartTime < entryEnd && newEndTime > entryStart) {
+                    const project = projects.find(p => p.id === entry.projectId);
+                    const projectName = project ? project.name : 'Unbekannt';
+                    const startStr = new Date(entry.startTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                    const endStr = new Date(entry.endTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                    
+                    return {
+                        entry,
+                        message: `${entry.date}: ${projectName} (${startStr} - ${endStr})`
+                    };
+                }
+            }
+            return null;
+        }
+
+        // ========================================
+        // HISTORY FUNCTIONS
+        // ========================================
+
+        function renderHistory() {
+            const container = document.getElementById('entriesList');
+            
+            const sorted = [...entries].sort((a, b) => 
+                new Date(b.startTime) - new Date(a.startTime)
+            );
+
+            if (sorted.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #999;">Noch keine Einträge vorhanden</p>';
+                return;
+            }
+
+            container.innerHTML = sorted.map(entry => {
+                const project = projects.find(p => p.id === entry.projectId);
+                const projectName = project ? project.name : 'Unbekannt';
+                const projectColor = project ? project.color : '#667eea';
+                const hours = (entry.duration / 3600).toFixed(2);
+                const startTime = new Date(entry.startTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                const endTime = new Date(entry.endTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                const locationIcon = entry.location === 'homeoffice' ? '🏠' : '🏢';
+
+                return `
+                    <div class="entry" style="border-left-color: ${projectColor};">
+                        <div class="entry-header">
+                            <span class="entry-project">${projectName}</span>
+                            <span class="entry-duration">${hours}h</span>
+                        </div>
+                        <div class="entry-details">
+                            📅 ${entry.date} | ⏰ ${startTime} - ${endTime} | ${locationIcon}
+                        </div>
+                        <div style="margin-top: 10px;">
+                            <button class="btn btn-small btn-secondary" onclick="openEditModal(${entry.id})">✏️</button>
+                            <button class="btn btn-small btn-danger" onclick="deleteEntry(${entry.id})">🗑️</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function deleteEntry(id) {
+            if (confirm('Wirklich löschen?')) {
+                entries = entries.filter(e => e.id !== id);
+                saveData();
+                renderHistory();
+                renderDashboard();
+                showMessage('🗑️ Eintrag gelöscht', 'success');
+            }
+        }
+
+        // ========================================
+        // EDIT ENTRY FUNCTIONS
+        // ========================================
+
+        let editLocation = 'office';
+
+        function openEditModal(id) {
+            const entry = entries.find(e => e.id === id);
+            if (!entry) return;
+
+            document.getElementById('editDate').value = entry.date;
+            document.getElementById('editStartTime').value = new Date(entry.startTime).toTimeString().slice(0, 5);
+            document.getElementById('editEndTime').value = new Date(entry.endTime).toTimeString().slice(0, 5);
+            document.getElementById('editProject').value = entry.projectId;
+            document.getElementById('editEntryId').value = id;
+            
+            editLocation = entry.location || 'office';
+            document.querySelectorAll('#editEntryModal .location-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.location === editLocation);
+            });
+
+            populateProjectSelects();
+            document.getElementById('editProject').value = entry.projectId;
+            document.getElementById('editEntryModal').classList.add('show');
+        }
+
+        function closeEditEntryModal() {
+            document.getElementById('editEntryModal').classList.remove('show');
+        }
+
+        function selectEditLocation(loc) {
+            editLocation = loc;
+            document.querySelectorAll('#editEntryModal .location-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.location === loc);
+            });
+        }
+
+        function updateEntry(event) {
+            event.preventDefault();
+
+            const id = parseInt(document.getElementById('editEntryId').value);
+            const date = document.getElementById('editDate').value;
+            const startTimeStr = document.getElementById('editStartTime').value;
+            const endTimeStr = document.getElementById('editEndTime').value;
+            const projectId = parseInt(document.getElementById('editProject').value);
+
+            const startTime = new Date(`${date}T${startTimeStr}`);
+            const endTime = new Date(`${date}T${endTimeStr}`);
+
+            if (endTime <= startTime) {
+                showMessage('❌ Endzeit muss nach Startzeit liegen!', 'warning');
+                return;
+            }
+
+            const conflict = checkTimeConflict(startTime, endTime, id);
+            if (conflict) {
+                if (!confirm(`⚠️ ZEITKONFLIKT!\n\n${conflict.message}\n\nTrotzdem speichern?`)) {
+                    return;
+                }
+            }
+
+            const duration = Math.floor((endTime - startTime) / 1000);
+
+            const index = entries.findIndex(e => e.id === id);
+            if (index !== -1) {
+                entries[index] = {
+                    ...entries[index],
+                    projectId,
+                    location: editLocation,
+                    startTime: startTime.toISOString(),
+                    endTime: endTime.toISOString(),
+                    duration,
+                    date
+                };
+                
+                saveData();
+                showMessage('✅ Eintrag aktualisiert!', 'success');
+                closeEditEntryModal();
+                renderHistory();
+                renderDashboard();
+            }
+        }
+
+        // ========================================
+        // DASHBOARD FUNCTIONS
+        // ========================================
+
+        function renderDashboard() {
+            const today = new Date().toISOString().split('T')[0];
+            const thisWeek = getWeekDates();
+            const thisMonth = new Date().toISOString().slice(0, 7);
+
+            const todayEntries = entries.filter(e => e.date === today);
+            const weekEntries = entries.filter(e => thisWeek.includes(e.date));
+            const monthEntries = entries.filter(e => e.date.startsWith(thisMonth));
+
+            const todayHours = todayEntries.reduce((sum, e) => sum + e.duration, 0) / 3600;
+            const weekHours = weekEntries.reduce((sum, e) => sum + e.duration, 0) / 3600;
+            const monthHours = monthEntries.reduce((sum, e) => sum + e.duration, 0) / 3600;
+
+            document.getElementById('dashboardStats').innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${todayHours.toFixed(1)}h</div>
+                    <div class="stat-label">Heute</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${weekHours.toFixed(1)}h</div>
+                    <div class="stat-label">Diese Woche</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${monthHours.toFixed(1)}h</div>
+                    <div class="stat-label">Dieser Monat</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${entries.length}</div>
+                    <div class="stat-label">Einträge gesamt</div>
+                </div>
+            `;
+
+            renderWeekChart(thisWeek);
+            renderProjectPieChart();
+            renderLocationStats();
+            renderLocationPieChart();
+            renderProjectStats();
+        }
+
+        function getWeekDates() {
+            const dates = [];
+            const today = new Date();
+            const dayOfWeek = today.getDay();
+            const monday = new Date(today);
+            monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+
+            for (let i = 0; i < 7; i++) {
+                const date = new Date(monday);
+                date.setDate(monday.getDate() + i);
+                dates.push(date.toISOString().split('T')[0]);
+            }
+            return dates;
+        }
+
+        function renderWeekChart(weekDates) {
+            const ctx = document.getElementById('weekChart').getContext('2d');
+            
+            if (weekChart) {
+                weekChart.destroy();
+            }
+
+            const labels = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+            const data = weekDates.map(date => {
+                const dayEntries = entries.filter(e => e.date === date);
+                return dayEntries.reduce((sum, e) => sum + e.duration, 0) / 3600;
+            });
+
+            weekChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Stunden',
+                        data,
+                        backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: value => value + 'h'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderProjectPieChart() {
+            const ctx = document.getElementById('projectPieChart').getContext('2d');
+            
+            if (projectPieChart) {
+                projectPieChart.destroy();
+            }
+
+            const projectData = {};
+            entries.forEach(entry => {
+                const project = projects.find(p => p.id === entry.projectId);
+                const projectName = project ? project.name : 'Unbekannt';
+                projectData[projectName] = (projectData[projectName] || 0) + entry.duration / 3600;
+            });
+
+            const labels = Object.keys(projectData);
+            const data = Object.values(projectData);
+            const colors = labels.map(name => {
+                const project = projects.find(p => p.name === name);
+                return project ? project.color : '#999';
+            });
+
+            if (labels.length === 0) {
+                return;
+            }
+
+            projectPieChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels,
+                    datasets: [{
+                        data,
+                        backgroundColor: colors
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { boxWidth: 12 }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ========================================
+        // HOMEOFFICE/OFFICE STATISTIK (NEU)
+        // ========================================
+
+        function renderLocationStats() {
+            const container = document.getElementById('locationStatsDisplay');
+            
+            const homeofficeSeconds = entries
+                .filter(e => e.location === 'homeoffice')
+                .reduce((sum, e) => sum + e.duration, 0);
+            
+            const officeSeconds = entries
+                .filter(e => e.location === 'office')
+                .reduce((sum, e) => sum + e.duration, 0);
+            
+            const totalSeconds = homeofficeSeconds + officeSeconds;
+            
+            const homeofficeHours = homeofficeSeconds / 3600;
+            const officeHours = officeSeconds / 3600;
+            
+            const homeofficePercent = totalSeconds > 0 ? (homeofficeSeconds / totalSeconds * 100) : 0;
+            const officePercent = totalSeconds > 0 ? (officeSeconds / totalSeconds * 100) : 0;
+            
+            container.innerHTML = `
+                <div class="location-stat-card homeoffice">
+                    <div class="location-stat-percent">${homeofficePercent.toFixed(1)}%</div>
+                    <div class="location-stat-hours">${homeofficeHours.toFixed(1)} Stunden</div>
+                    <div class="location-stat-label">🏠 Homeoffice</div>
+                </div>
+                <div class="location-stat-card office">
+                    <div class="location-stat-percent">${officePercent.toFixed(1)}%</div>
+                    <div class="location-stat-hours">${officeHours.toFixed(1)} Stunden</div>
+                    <div class="location-stat-label">🏢 Büro</div>
+                </div>
+            `;
+        }
+
+        function renderLocationPieChart() {
+            const ctx = document.getElementById('locationPieChart').getContext('2d');
+            
+            if (locationPieChart) {
+                locationPieChart.destroy();
+            }
+
+            const homeofficeHours = entries
+                .filter(e => e.location === 'homeoffice')
+                .reduce((sum, e) => sum + e.duration, 0) / 3600;
+            
+            const officeHours = entries
+                .filter(e => e.location === 'office')
+                .reduce((sum, e) => sum + e.duration, 0) / 3600;
+
+            if (homeofficeHours === 0 && officeHours === 0) {
+                return;
+            }
+
+            locationPieChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['🏠 Homeoffice', '🏢 Büro'],
+                    datasets: [{
+                        data: [homeofficeHours, officeHours],
+                        backgroundColor: ['#11998e', '#667eea']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { boxWidth: 12 }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderProjectStats() {
+            const container = document.getElementById('projectStats');
+            
+            const projectTotals = {};
+            entries.forEach(entry => {
+                projectTotals[entry.projectId] = (projectTotals[entry.projectId] || 0) + entry.duration;
+            });
+
+            const sorted = Object.entries(projectTotals)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5);
+
+            if (sorted.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #999;">Keine Daten</p>';
+                return;
+            }
+
+            container.innerHTML = sorted.map(([projectId, duration]) => {
+                const project = projects.find(p => p.id === parseInt(projectId));
+                const name = project ? project.name : 'Unbekannt';
+                const color = project ? project.color : '#999';
+                const hours = (duration / 3600).toFixed(1);
+
+                return `
+                    <div class="project-item" style="border-left-color: ${color};">
+                        <span class="project-name">${name}</span>
+                        <span style="font-weight: bold;">${hours}h</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ========================================
+        // PROJECT MANAGEMENT
+        // ========================================
+
+        function openProjectModal() {
+            document.getElementById('projectModal').classList.add('show');
+        }
+
+        function closeProjectModal() {
+            document.getElementById('projectModal').classList.remove('show');
+            document.getElementById('projectName').value = '';
+        }
+
+        function saveProject(event) {
+            event.preventDefault();
+
+            const name = document.getElementById('projectName').value.trim();
+            const color = document.getElementById('projectColor').value;
+
+            if (!name) {
+                showMessage('❌ Bitte Projektnamen eingeben!', 'warning');
+                return;
+            }
+
+            const newId = Math.max(...projects.map(p => p.id), 0) + 1;
+            projects.push({ id: newId, name, color });
+            
+            saveData();
+            populateProjectSelects();
+            renderProjectsList();
+            closeProjectModal();
+            
+            showMessage('✅ Projekt erstellt!', 'success');
+        }
+
+        // ========================================
+        // EDIT PROJECT FUNCTIONS (NEU)
+        // ========================================
+
+        function openEditProjectModal(id) {
+            const project = projects.find(p => p.id === id);
+            if (!project) return;
+
+            document.getElementById('editProjectName').value = project.name;
+            document.getElementById('editProjectColor').value = project.color;
+            document.getElementById('editProjectId').value = id;
+            document.getElementById('editProjectModal').classList.add('show');
+        }
+
+        function closeEditProjectModal() {
+            document.getElementById('editProjectModal').classList.remove('show');
+            document.getElementById('editProjectName').value = '';
+        }
+
+        function updateProject(event) {
+            event.preventDefault();
+
+            const id = parseInt(document.getElementById('editProjectId').value);
+            const name = document.getElementById('editProjectName').value.trim();
+            const color = document.getElementById('editProjectColor').value;
+
+            if (!name) {
+                showMessage('❌ Bitte Projektnamen eingeben!', 'warning');
+                return;
+            }
+
+            const index = projects.findIndex(p => p.id === id);
+            if (index !== -1) {
+                projects[index] = {
+                    ...projects[index],
+                    name,
+                    color
+                };
+                
+                saveData();
+                populateProjectSelects();
+                renderProjectsList();
+                renderHistory();
+                renderDashboard();
+                closeEditProjectModal();
+                
+                showMessage('✅ Projekt aktualisiert!', 'success');
+            }
+        }
+
+        function renderProjectsList() {
+            const container = document.getElementById('projectsList');
+            
+            container.innerHTML = projects.map(project => {
+                const entryCount = entries.filter(e => e.projectId === project.id).length;
+                const totalHours = entries
+                    .filter(e => e.projectId === project.id)
+                    .reduce((sum, e) => sum + e.duration, 0) / 3600;
+
+                return `
+                    <div class="project-item" style="border-left-color: ${project.color};">
+                        <div>
+                            <span class="project-name">${project.name}</span>
+                            <div style="font-size: 12px; color: #999;">
+                                ${entryCount} Einträge • ${totalHours.toFixed(1)}h
+                            </div>
+                        </div>
+                        <div class="project-actions">
+                            <button class="btn btn-small btn-secondary" onclick="openEditProjectModal(${project.id})">✏️</button>
+                            <button class="btn btn-small btn-danger" onclick="deleteProject(${project.id})">🗑️</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function deleteProject(id) {
+            const entryCount = entries.filter(e => e.projectId === id).length;
+            
+            if (entryCount > 0) {
+                if (!confirm(`⚠️ Dieses Projekt hat ${entryCount} Einträge.\n\nWirklich löschen?`)) {
+                    return;
+                }
+            }
+
+            projects = projects.filter(p => p.id !== id);
+            saveData();
+            populateProjectSelects();
+            renderProjectsList();
+            showMessage('🗑️ Projekt gelöscht', 'success');
+        }
+
+        // ========================================
+        // EXPORT FUNCTIONS
+        // ========================================
+
+        function toggleCustomDateRange() {
+            const select = document.getElementById('exportRange');
+            const customRange = document.getElementById('customDateRange');
+            
+            if (select.value === 'custom') {
+                customRange.classList.add('show');
+                setDefaultExportDates();
+            } else {
+                customRange.classList.remove('show');
+            }
+        }
+
+        function getFilteredEntries() {
+            const range = document.getElementById('exportRange').value;
+            const today = new Date().toISOString().split('T')[0];
+            const thisWeek = getWeekDates();
+            const thisMonth = new Date().toISOString().slice(0, 7);
+
+            switch (range) {
+                case 'today':
+                    return entries.filter(e => e.date === today);
+                case 'week':
+                    return entries.filter(e => thisWeek.includes(e.date));
+                case 'month':
+                    return entries.filter(e => e.date.startsWith(thisMonth));
+                case 'custom':
+                    const fromDate = document.getElementById('exportDateFrom').value;
+                    const toDate = document.getElementById('exportDateTo').value;
+                    
+                    if (!fromDate || !toDate) {
+                        showMessage('⚠️ Bitte Start- und Enddatum auswählen!', 'warning');
+                        return [];
+                    }
+                    
+                    return entries.filter(e => e.date >= fromDate && e.date <= toDate);
+                default:
+                    return entries;
+            }
+        }
+
+        function getExportRangeLabel() {
+            const range = document.getElementById('exportRange').value;
+            switch (range) {
+                case 'today': return 'Heute';
+                case 'week': return 'Diese_Woche';
+                case 'month': return 'Dieser_Monat';
+                case 'custom':
+                    const fromDate = document.getElementById('exportDateFrom').value;
+                    const toDate = document.getElementById('exportDateTo').value;
+                    return `${fromDate}_bis_${toDate}`;
+                default: return 'Alle';
+            }
+        }
+
+        function exportAs(format) {
+            const filtered = getFilteredEntries();
+            
+            if (filtered.length === 0) {
+                showMessage('⚠️ Keine Einträge zum Exportieren!', 'warning');
+                return;
+            }
+
+            switch (format) {
+                case 'xlsx':
+                    exportXLSX(filtered);
+                    break;
+                case 'pdf':
+                    exportPDF(filtered);
+                    break;
+                case 'csv':
+                    exportCSV(filtered);
+                    break;
+                case 'json':
+                    exportJSON();
+                    break;
+            }
+        }
+
+        function exportXLSX(filtered) {
+            const data = filtered.map(e => {
+                const project = projects.find(p => p.id === e.projectId);
+                return {
+                    'Datum': e.date,
+                    'Projekt': project ? project.name : 'Unbekannt',
+                    'Start': new Date(e.startTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
+                    'Ende': new Date(e.endTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
+                    'Dauer (h)': (e.duration / 3600).toFixed(2),
+                    'Arbeitsort': e.location === 'homeoffice' ? 'Homeoffice' : 'Büro'
+                };
+            });
+
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Zeiterfassung');
+            
+            const rangeLabel = getExportRangeLabel();
+            const filename = `Zeiterfassung_${rangeLabel}_${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, filename);
+            
+            showMessage('✅ Excel-Export erfolgreich!', 'success');
+        }
+
+        function exportPDF(filtered) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            doc.setFontSize(20);
+            doc.text('Zeiterfassung - Bericht', 20, 20);
+            
+            doc.setFontSize(10);
+            const rangeLabel = getExportRangeLabel();
+            doc.text(`Zeitraum: ${rangeLabel}`, 20, 30);
+            doc.text(`Erstellt am: ${new Date().toLocaleDateString('de-DE')}`, 20, 35);
+            
+            let y = 50;
+            doc.setFontSize(12);
+            
+            filtered.forEach((entry, index) => {
+                if (y > 270) {
+                    doc.addPage();
+                    y = 20;
+                }
+                
+                const project = projects.find(p => p.id === entry.projectId);
+                const projectName = project ? project.name : 'Unbekannt';
+                const hours = (entry.duration / 3600).toFixed(2);
+                const startTime = new Date(entry.startTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                const endTime = new Date(entry.endTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                
+                doc.text(`${entry.date} | ${projectName}`, 20, y);
+                doc.text(`${startTime} - ${endTime} (${hours}h)`, 20, y + 5);
+                doc.text(`Ort: ${entry.location === 'homeoffice' ? 'Homeoffice' : 'Büro'}`, 20, y + 10);
+                
+                y += 20;
+            });
+
+            const filename = `Zeiterfassung_${rangeLabel}_${new Date().toISOString().split('T')[0]}.pdf`;
+            doc.save(filename);
+            
+            showMessage('✅ PDF-Export erfolgreich!', 'success');
+        }
+
+        function exportCSV(filtered) {
+            let csv = '\ufeff';
+            csv += 'Datum,Projekt,Start,Ende,Dauer (h),Arbeitsort\n';
+            
+            filtered.forEach(e => {
+                const project = projects.find(p => p.id === e.projectId);
+                const projectName = project ? project.name : 'Unbekannt';
+                const hours = (e.duration / 3600).toFixed(2);
+                const location = e.location === 'homeoffice' ? 'Homeoffice' : 'Büro';
+                const startTime = new Date(e.startTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                const endTime = new Date(e.endTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                
+                csv += `"${e.date}","${projectName}","${startTime}","${endTime}",${hours},"${location}"\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const rangeLabel = getExportRangeLabel();
+            a.href = url;
+            a.download = `Zeiterfassung_${rangeLabel}_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            showMessage('✅ CSV-Export erfolgreich!', 'success');
+        }
+
+        function exportJSON() {
+            const data = {
+                entries,
+                projects,
+                exportDate: new Date().toISOString()
+            };
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], { 
+                type: 'application/json' 
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `zeiterfassung_backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            showMessage('✅ JSON-Backup erstellt!', 'success');
+        }
+
+        // ========================================
+        // NAVIGATION
+        // ========================================
+
+        function showPage(pageName) {
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.remove('active');
+            });
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            document.getElementById(pageName + 'Page').classList.add('active');
+            event.currentTarget.classList.add('active');
+
+            if (pageName === 'history') renderHistory();
+            if (pageName === 'dashboard') renderDashboard();
+            if (pageName === 'projects') renderProjectsList();
+            if (pageName === 'export') setDefaultExportDates();
+        }
+
+        // ========================================
+        // DATA MANAGEMENT
+        // ========================================
+
+        function importData() {
+            document.getElementById('importFile').click();
+        }
+
+        function handleImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    
+                    if (confirm('Möchtest du die vorhandenen Daten ersetzen oder zusammenführen?\n\nOK = Ersetzen\nAbbrechen = Zusammenführen')) {
+                        entries = data.entries || [];
+                        projects = data.projects || projects;
+                    } else {
+                        entries = [...entries, ...(data.entries || [])];
+                    }
+                    
+                    saveData();
+                    populateProjectSelects();
+                    renderHistory();
+                    renderDashboard();
+                    renderProjectsList();
+                    showMessage('✅ Daten importiert!', 'success');
+                } catch (error) {
+                    showMessage('❌ Fehler beim Importieren!', 'warning');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        function clearAllData() {
+            if (confirm('⚠️ ACHTUNG!\n\nAlle Daten werden unwiderruflich gelöscht!\n\nWirklich fortfahren?')) {
+                if (confirm('Bist du dir wirklich sicher? Diese Aktion kann nicht rückgängig gemacht werden!')) {
+                    entries = [];
+                    saveData();
+                    renderHistory();
+                    renderDashboard();
+                    showMessage('🗑️ Alle Daten gelöscht!', 'success');
+                }
+            }
+        }
+
+        // ========================================
+        // UI HELPERS
+        // ========================================
+
+        function showMessage(message, type) {
+            const existing = document.querySelector('.message-toast');
+            if (existing) existing.remove();
+
+            const toast = document.createElement('div');
+            toast.className = type === 'warning' ? 'warning' : 'success';
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 10000;
+                max-width: 90%;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            `;
+            toast.classList.add('message-toast');
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        function showModalMessage(message, type) {
+            const container = document.getElementById('modalMessage');
+            container.className = type === 'warning' ? 'warning' : 'success';
+            container.textContent = message;
+            container.style.display = 'block';
+
+            setTimeout(() => {
+                container.style.display = 'none';
+            }, 3000);
+        }
+
+        // ========================================
+        // INIT
+        // ========================================
+
+        window.addEventListener('load', init);
+
+        console.log('✅ Zeiterfassung Pro mit Cloud-Sync geladen!');
+    </script>
+</body>
+</html>
